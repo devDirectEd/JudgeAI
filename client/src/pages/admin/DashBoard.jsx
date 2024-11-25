@@ -54,7 +54,7 @@ const Dashboard = () => {
   }
 
   return (
-    <>
+    <div className="bg-background">
     <Header />
     <Box padding={8}>
       {/* Dynamic Stats Section */}
@@ -94,7 +94,7 @@ const Dashboard = () => {
         <CustomTabs />
       </Box>
     </Box>
-    </>
+    </div>
   );
 };
 

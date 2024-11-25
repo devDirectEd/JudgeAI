@@ -184,14 +184,14 @@ const ScheduleTab = () => {
 
       <Flex bg="blackAlpha.100" paddingY="25px" paddingX="10%" borderRadius="10px" >
         {/* Calendar View */}
-        <VStack bg="white" spacing={4} align="stretch" maxW={"30%"} border="1px" borderColor={"blackAlpha.200"} padding={'10px'} borderRadius={"md"} mr="10px" height='fit-content'>
+        <VStack bg="white" spacing={4} align="stretch" maxW={"50%"} border="1px" borderColor={"blackAlpha.200"} padding={'10px'} borderRadius={"md"} mr="10px" height='fit-content'>
           <Heading size="lg" fontWeight='black' justify='center' mx="10px">Calendar View</Heading>
           <Box bg="white" p={4} borderRadius="md" shadow="sm" >
             <Calendar
                 mode="single"
                 selected={newSchedule.selectedDate}
                 onSelect={(date) => setNewSchedule((prev) => ({ ...prev, selectedDate: date }))}
-                className="rounded-md border w-full "
+                className="rounded-md border w-full bg-[#464646] text-white"
             />
             <Text mt={2} fontSize="sm">
               Selected Date: {newSchedule.selectedDate.toDateString()}
