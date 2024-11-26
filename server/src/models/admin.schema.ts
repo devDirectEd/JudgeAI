@@ -6,16 +6,13 @@ export type AdminDocument = Admin & Document;
 @Schema({ timestamps: true })
 export class Admin {
   @Prop()
-  firstname: string;
+  fullname: string;
 
   @Prop({ type: Types.ObjectId, ref: 'User' })
   userId: Types.ObjectId;
 
   @Prop()
   entityId: string
-
-  @Prop()
-  lastname: string;
 
   @Prop({ required: true, unique: true })
   email: string;

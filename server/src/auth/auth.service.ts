@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -31,8 +35,7 @@ export class AuthService {
     try {
       // First create the admin record
       const admin = new this.adminModel({
-        firstname: createAdminDto.firstname,
-        lastname: createAdminDto.lastname,
+        fullname: createAdminDto.fullname,
         email: createAdminDto.email,
       });
       const savedAdmin = await admin.save({ session });
@@ -41,7 +44,7 @@ export class AuthService {
       const hashedPassword = await bcrypt.hash(createAdminDto.password, 10);
       const user = new this.userModel({
         email: createAdminDto.email,
-        name: `${createAdminDto.firstname} ${createAdminDto.lastname}`,
+        name: createAdminDto.fullname,
         password: hashedPassword,
         role: UserRole.ADMIN,
         roleId: savedAdmin._id,
@@ -52,8 +55,7 @@ export class AuthService {
 
       return {
         id: savedAdmin._id,
-        firstname: savedAdmin.firstname,
-        lastname: savedAdmin.lastname,
+        fullname: savedAdmin.fullname,
         email: savedAdmin.email,
         role: UserRole.ADMIN,
       };
@@ -101,7 +103,7 @@ export class AuthService {
       await this.mailService.sendCredentialsEmail(
         createJudgeDto.email,
         password,
-        `${savedJudge.firstname} ${savedJudge.lastname}`
+        `${savedJudge.firstname} ${savedJudge.lastname}`,
       );
 
       return {
@@ -128,14 +130,20 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      loginDto.password,
+      user.password,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
     // Get the role-specific entity (Admin or Judge)
-    const entityModel = user.role === UserRole.ADMIN ? this.adminModel : this.judgeModel;
-    const entity = await (entityModel as Model<Admin | Judge>).findById(user.roleId);
+    const entityModel =
+      user.role === UserRole.ADMIN ? this.adminModel : this.judgeModel;
+    const entity = await (entityModel as Model<Admin | Judge>).findById(
+      user.roleId,
+    );
 
     if (!entity) {
       throw new UnauthorizedException('User account is incomplete');
@@ -166,9 +174,8 @@ export class AuthService {
       user: {
         id: entity._id,
         email: entity.email,
-        firstname: entity.firstname,
-        lastname: entity.lastname,
-        role: user.role
+        fullname: user.name,
+        role: user.role,
       },
     };
   }
@@ -227,6 +234,8 @@ export class AuthService {
   }
 
   async logout(userId: string): Promise<void> {
-    await this.userModel.findByIdAndUpdate(userId, { refreshToken: null }).exec();
+    await this.userModel
+      .findByIdAndUpdate(userId, { refreshToken: null })
+      .exec();
   }
 }
