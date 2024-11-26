@@ -36,7 +36,7 @@ const AdminLogin = () => {
       });
       return;
     }
-
+  
     try {
       await dispatch(login({ 
         credentials: { email, password },
@@ -50,18 +50,20 @@ const AdminLogin = () => {
         duration: 3000,
         isClosable: true,
       });
-
+  
       navigate("/admin/dashboard");
     } catch (err) {
       toast({
         title: "Login Failed",
-        description: err.message || "Please check your credentials and try again",
+        description: err || "Invalid credentials. Please try again.",
         status: "error",
         duration: 3000,
         isClosable: true,
       });
+      return; // Prevent further actions on error
     }
   };
+  
 
   const handleKeyDown = (event) => {
     if (event.key === 'Enter') {
