@@ -22,7 +22,7 @@ const Signup = () => {
   const { loading, error } = useSelector((state) => state.auth);
 
   const [formData, setFormData] = useState({
-    name: "",
+    fullname: "",
     email: "",
     password: "",
     confirmPassword: ""
@@ -47,7 +47,7 @@ const Signup = () => {
     e.preventDefault();
 
     // Basic validation
-    if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+    if (!formData.fullname || !formData.email || !formData.password || !formData.confirmPassword) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -70,9 +70,12 @@ const Signup = () => {
     }
 
     try {
-      // Remove confirmPassword before sending to API
-      // eslint-disable-next-line no-unused-vars
-      const { confirmPassword, ...signupData } = formData;
+      // Create the exact request body format
+      const signupData = {
+        fullname: formData.fullname,
+        email: formData.email,
+        password: formData.password
+      };
       
       await dispatch(signup(signupData)).unwrap();
       
@@ -107,8 +110,8 @@ const Signup = () => {
             <FormLabel>Full Name</FormLabel>
             <Input 
               placeholder="Enter your full name" 
-              name="name" 
-              value={formData.name}
+              name="fullname" 
+              value={formData.fullname}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
             />
@@ -155,7 +158,7 @@ const Signup = () => {
             type="submit" 
             color='white' 
             bg="black"
-            _ _hover={{ bg: "gray.800" }}
+            _hover={{ bg: "gray.800" }}
             size="lg" 
             width="100%"
             isLoading={loading}

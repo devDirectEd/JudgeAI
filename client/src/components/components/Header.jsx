@@ -72,13 +72,13 @@ const Navbar = () => {
 
 
 Navbar.propTypes = {
-  tagContent: PropTypes.string.isRequired,
+  tagContent: PropTypes.string,
   menuItems: PropTypes.arrayOf(
     PropTypes.shape({
       label: PropTypes.string.isRequired,
       to: PropTypes.string.isRequired,
     })
-  ).isRequired,
+  ),
 };
 
 export default Navbar;

@@ -1,33 +1,28 @@
 import { useEffect, useState } from "react";
-import { Box, HStack, VStack, Spinner, useToast } from "@chakra-ui/react";
+import { Spinner, useToast } from "@chakra-ui/react";
 import { FaChartBar, FaUsers, FaCalendarAlt, FaStar } from "react-icons/fa";
 import DynamicStat from "../../components/components/DynamicStat";
 import Header from "../../components/components/Header";
 import CustomTabs from "@/components/components/tabs";
+import axiosInstance from "@/redux/axiosInstance";
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const toast = useToast();
 
   useEffect(() => {
-    // Fetch stats data from the backend
     const fetchStats = async () => {
       try {
-        /*const response = await fetch("/api/stats"); // Replace with API endpoint
-        if (!response.ok) throw new Error("Failed to fetch stats");
-        // eslint-disable-next-line no-unused-vars
-        const data = await response.json();*/
-        // Simulate delay
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        // Dummy data
+        const response = await axiosInstance.get("/admin/metrics")
+        console.log(response)
         const dummyData = {
-          totalStartups: "150",
+          totalStartups: response.data.totalStartups,
           newStartups: "20",
-          activeJudges: "10",
+          activeJudges: response.data.totalJudges,
           allAssigned: false,
           assignedJudges: "7",
-          upcomingPitches: "5",
-          averageScore: "8.7",
+          upcomingPitches: response.data.upcomingPitches,
+          averageScore: response.data.averageScore,
         };
         setStats(dummyData);
       } catch (error) {
@@ -47,53 +42,61 @@ const Dashboard = () => {
 
   if (!stats) {
     return (
-      <VStack minHeight="100vh" justifyContent="center">
+      <div className="min-h-screen flex items-center justify-center">
         <Spinner size="xl" />
-      </VStack>
+      </div>
     );
   }
 
   return (
-    <div className="bg-background">
-    <Header />
-    <Box padding={8}>
-      {/* Dynamic Stats Section */}
-      <HStack spacing={8} mb={8}>
-        <DynamicStat
-          label="Total Startups"
-          mainText={stats.totalStartups}
-          helpText={`${stats.newStartups} startups from last round`}
-          IconComponent={FaChartBar}
-        />
-        <DynamicStat
-          label="Active Judges"
-          mainText={stats.activeJudges}
-          helpText={
-            stats.allAssigned
-              ? "All assigned"
-              : `${stats.assignedJudges} assigned`
-          }
-          IconComponent={FaUsers}
-        />
-        <DynamicStat
-          label="Upcoming Pitches"
-          mainText={stats.upcomingPitches}
-          helpText="Next 24 hours"
-          IconComponent={FaCalendarAlt}
-        />
-        <DynamicStat
-          label="Average Score"
-          mainText={stats.averageScore}
-          helpText="out of 10"
-          IconComponent={FaStar}
-        />
-      </HStack>
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      <div className="p-4 md:p-8">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+          <div className="w-full">
+            <DynamicStat
+              label="Total Startups"
+              mainText={stats.totalStartups}
+              helpText={`${stats.newStartups} startups from last round`}
+              IconComponent={FaChartBar}
+            />
+          </div>
+          <div className="w-full">
+            <DynamicStat
+              label="Active Judges"
+              mainText={stats.activeJudges}
+              helpText={
+                stats.allAssigned
+                  ? "All assigned"
+                  : `${stats.assignedJudges} assigned`
+              }
+              IconComponent={FaUsers}
+            />
+          </div>
+          <div className="w-full">
+            <DynamicStat
+              label="Upcoming Pitches"
+              mainText={stats.upcomingPitches}
+              helpText="Next 24 hours"
+              IconComponent={FaCalendarAlt}
+            />
+          </div>
+          <div className="w-full">
+            <DynamicStat
+              label="Average Score"
+              mainText={stats.averageScore}
+              helpText="out of 10"
+              IconComponent={FaStar}
+            />
+          </div>
+        </div>
 
-      {/* Additional Content */}
-      <Box>
-        <CustomTabs />
-      </Box>
-    </Box>
+        {/* Tabs Section */}
+        <div className="bg-white rounded-lg shadow">
+          <CustomTabs />
+        </div>
+      </div>
     </div>
   );
 };
