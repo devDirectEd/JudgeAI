@@ -1,10 +1,13 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-    // baseURL: 'https://backend-j7ru.onrender.com',
-    baseURL: 'http://localhost:8080',
+    baseURL: 'https://judgeai.onrender.com/api/v1',
+    headers: {
+        'Content-Type': 'application/json'
+    }
 });
 
+// Request interceptor
 axiosInstance.interceptors.request.use(
     config => {
         const accessToken = localStorage.getItem('accessToken');
@@ -16,23 +19,43 @@ axiosInstance.interceptors.request.use(
     error => Promise.reject(error)
 );
 
+// Response interceptor
 axiosInstance.interceptors.response.use(
     response => response,
     async error => {
         const originalRequest = error.config;
-        if (error.response.status === 401 && !originalRequest._retry) {
+        
+        if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
             const refreshToken = localStorage.getItem('refreshToken');
+            
             try {
-                const { data } = await axiosInstance.post('/auth/refresh', { refreshToken });
+                const { data } = await axios.post(
+                    `${axiosInstance.defaults.baseURL}api/v1/auth/refresh`,
+                    { refreshToken }
+                );
+                
                 localStorage.setItem('accessToken', data.accessToken);
-                axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
+                if (data.refreshToken) {
+                    localStorage.setItem('refreshToken', data.refreshToken);
+                }
+                
+                originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
                 return axiosInstance(originalRequest);
+                
             } catch (refreshError) {
-                console.error('Failed to refresh token:', refreshError);
-                // handle logout and redirect to login if token refresh fails
+                console.error('Token refresh failed:', refreshError);
+                localStorage.clear();
+                window.location.href = '/admin/login';
+                return Promise.reject(refreshError);
             }
         }
+
+        if (error.response?.status === 403) {
+            localStorage.clear();
+            window.location.href = '/admin/login';
+        }
+
         return Promise.reject(error);
     }
 );
