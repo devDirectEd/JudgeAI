@@ -1,57 +1,177 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { LoginDto, SignupDto } from './auth.dto';
 import * as bcrypt from 'bcrypt';
-
-import {
-  InvalidCredentialsError,
-  UserExistsError,
-  InvalidRefreshTokenError,
-} from './auth.errors';
+import { UserRole, JwtPayload, LoginResponse } from '../types/auth.types';
+import { LoginDto } from './auth.dto';
 import { User, UserDocument } from 'src/models/user.schema';
-import { JwtPayload, LoginResponse } from 'src/types/auth.types';
+import { Admin } from 'src/models/admin.schema';
+import { Judge } from 'src/models/judge.schema';
+import { RegisterAdminDto } from 'src/modules/admin/admin.dto';
+import { CreateJudgeDto } from 'src/modules/judge/judge.dto';
+import { generateRandomPassword } from 'src/common/utils';
+import { NotificationsService } from 'src/modules/notifications/notifications.service';
+import { InvalidRefreshTokenError } from './auth.errors';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Admin.name) private adminModel: Model<Admin>,
+    @InjectModel(Judge.name) private judgeModel: Model<Judge>,
     private jwtService: JwtService,
+    private mailService: NotificationsService,
   ) {}
 
-  async signUp(signupDto: SignupDto): Promise<LoginResponse> {
-    const existingUser = await this.userModel.findOne({ email: signupDto.email }).exec();
+  async registerAdmin(createAdminDto: RegisterAdminDto) {
+    const session = await this.userModel.db.startSession();
+    session.startTransaction();
 
-    if (existingUser) {
-      throw new UserExistsError();
+    try {
+      // First create the admin record
+      const admin = new this.adminModel({
+        firstname: createAdminDto.firstname,
+        lastname: createAdminDto.lastname,
+        email: createAdminDto.email,
+      });
+      const savedAdmin = await admin.save({ session });
+
+      // Then create the user record linking to admin
+      const hashedPassword = await bcrypt.hash(createAdminDto.password, 10);
+      const user = new this.userModel({
+        email: createAdminDto.email,
+        name: `${createAdminDto.firstname} ${createAdminDto.lastname}`,
+        password: hashedPassword,
+        role: UserRole.ADMIN,
+        roleId: savedAdmin._id,
+      });
+      await user.save({ session });
+
+      await session.commitTransaction();
+
+      return {
+        id: savedAdmin._id,
+        firstname: savedAdmin.firstname,
+        lastname: savedAdmin.lastname,
+        email: savedAdmin.email,
+        role: UserRole.ADMIN,
+      };
+    } catch (error) {
+      await session.abortTransaction();
+      if (error.code === 11000) {
+        throw new ConflictException('Email already exists');
+      }
+      throw error;
+    } finally {
+      session.endSession();
     }
-
-    const hashedPassword = await bcrypt.hash(signupDto.password, 10);
-    const newUser = new this.userModel({
-      ...signupDto,
-      password: hashedPassword,
-    });
-
-    const savedUser = await newUser.save();
-    return this.generateTokens(savedUser);
   }
 
-  async login(loginDto: LoginDto): Promise<LoginResponse> {
-    const user = await this.userModel.findOne({ email: loginDto.email }).exec();
+  async registerJudge(createJudgeDto: CreateJudgeDto) {
+    const session = await this.userModel.db.startSession();
+    session.startTransaction();
 
+    try {
+      // Generate random password for judge
+      const password = generateRandomPassword();
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create judge record
+      const judge = new this.judgeModel({
+        firstname: createJudgeDto.firstname,
+        lastname: createJudgeDto.lastname,
+        email: createJudgeDto.email,
+        expertise: createJudgeDto.expertise,
+      });
+      const savedJudge = await judge.save({ session });
+
+      // Create user record linking to judge
+      const user = new this.userModel({
+        email: createJudgeDto.email,
+        password: hashedPassword,
+        role: UserRole.JUDGE,
+        roleId: savedJudge._id,
+      });
+      await user.save({ session });
+
+      await session.commitTransaction();
+
+      // Send credentials email
+      await this.mailService.sendCredentialsEmail(
+        createJudgeDto.email,
+        password,
+        `${savedJudge.firstname} ${savedJudge.lastname}`
+      );
+
+      return {
+        id: savedJudge._id,
+        firstname: savedJudge.firstname,
+        lastname: savedJudge.lastname,
+        email: savedJudge.email,
+        expertise: savedJudge.expertise,
+      };
+    } catch (error) {
+      await session.abortTransaction();
+      if (error.code === 11000) {
+        throw new ConflictException('Email already exists');
+      }
+      throw error;
+    } finally {
+      session.endSession();
+    }
+  }
+
+  async login(loginDto: LoginDto) {
+    const user = await this.userModel.findOne({ email: loginDto.email });
     if (!user) {
-      throw new InvalidCredentialsError();
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
     if (!isPasswordValid) {
-      throw new InvalidCredentialsError();
+      throw new UnauthorizedException('Invalid credentials');
     }
 
-    return this.generateTokens(user);
-  }
+    // Get the role-specific entity (Admin or Judge)
+    const entityModel = user.role === UserRole.ADMIN ? this.adminModel : this.judgeModel;
+    const entity = await (entityModel as Model<Admin | Judge>).findById(user.roleId);
 
+    if (!entity) {
+      throw new UnauthorizedException('User account is incomplete');
+    }
+
+    const payload: JwtPayload = {
+      userId: user._id.toString(),
+      email: user.email,
+      role: user.role as UserRole,
+      roleId: user.roleId.toString(),
+    };
+
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(payload),
+      this.jwtService.signAsync(payload, {
+        expiresIn: '7d',
+        secret: process.env.JWT_REFRESH_SECRET,
+      }),
+    ]);
+
+    // Save refresh token
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: entity._id,
+        email: entity.email,
+        firstname: entity.firstname,
+        lastname: entity.lastname,
+        role: user.role
+      },
+    };
+  }
   async refresh(refreshToken: string): Promise<LoginResponse> {
     try {
       const payload = this.jwtService.verify(refreshToken, {
@@ -72,12 +192,12 @@ export class AuthService {
       throw new InvalidRefreshTokenError();
     }
   }
-
   private async generateTokens(user: UserDocument): Promise<LoginResponse> {
     const payload: JwtPayload = {
       userId: user._id.toString(),
       email: user.email,
-      role: user.role,
+      role: user.role as UserRole,
+      roleId: user.roleId.toString(),
     };
 
     const [accessToken, refreshToken] = await Promise.all([

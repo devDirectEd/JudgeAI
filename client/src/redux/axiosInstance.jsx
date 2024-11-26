@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-    baseURL: 'https://backend-j7ru.onrender.com',
+    // baseURL: 'https://backend-j7ru.onrender.com',
+    baseURL: 'http://localhost:8080',
 });
 
 axiosInstance.interceptors.request.use(

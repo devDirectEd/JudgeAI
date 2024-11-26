@@ -8,16 +8,6 @@ export class LoginDto {
   password: string;
 }
 
-export class SignupDto {
-  @IsEmail()
-  email: string;
-
-  @IsString()
-  password: string;
-
-  @IsString()
-  name: string;
-}
 
 export class RefreshTokenDto {
   @IsString()

@@ -8,26 +8,37 @@ import {
   Req,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto, SignupDto, RefreshTokenDto } from './auth.dto';
+import { LoginDto, RefreshTokenDto } from './auth.dto';
 import { Public } from 'src/common/decorators/public.decorators';
 import { JwtAuthGuard } from 'src/common/guards/auth.guard';
+import { Request } from 'express';
+import { CreateJudgeDto } from 'src/modules/judge/judge.dto';
+import { RegisterAdminDto } from 'src/modules/admin/admin.dto';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
-  @Post('signup')
+  @Post('admin/signup')
   @HttpCode(HttpStatus.CREATED)
-  async signup(@Body() signupDto: SignupDto) {
-    return this.authService.signUp(signupDto);
+  async signup(@Body() signupDto: RegisterAdminDto) {
+    return this.authService.registerAdmin(signupDto);
   }
 
   @Public()
-  @Post('login')
+  @Post('admin/login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+  
+
+  @Public()
+  @Post('judge/login')
+  @HttpCode(HttpStatus.CREATED)
+  async loginJudge(@Body() signupDto: CreateJudgeDto) {
+    return this.authService.registerJudge(signupDto);
   }
 
   @Public()
@@ -40,8 +51,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(@Req() req) {
-    await this.authService.logout(req.user.userId);
+  async logout(@Req() req: Request) {
+    await this.authService.logout(req.user['userId']);
     return { message: 'Successfully logged out' };
   }
 }
