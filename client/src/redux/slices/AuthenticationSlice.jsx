@@ -33,7 +33,6 @@ export const login = createAsyncThunk(
       const response = await axiosInstance.post(loginUrl, credentials);
       const { accessToken, refreshToken, user } = response.data;
       
-      // Store tokens in localStorage
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('role', user.role);
@@ -46,14 +45,20 @@ export const login = createAsyncThunk(
       };
     } catch (error) {
       console.error('Login error:', error);
-      return rejectWithValue(error.response?.data?.message || 'Login failed');
+      return rejectWithValue(error.response?.data?.error || 'Login failed');
     }
   }
 );
 
 export const checkAuthState = createAsyncThunk(
   'auth/checkState',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, getState }) => {
+    // Early return if already authenticated
+    const state = getState();
+    if (state.auth.isAuthenticated) {
+      return null;
+    }
+
     try {
       const accessToken = localStorage.getItem('accessToken');
       const role = localStorage.getItem('role');
@@ -76,8 +81,7 @@ export const checkAuthState = createAsyncThunk(
       return {
         role,
         userId,
-        user: userData || { id: userId },
-        isAuthenticated: true
+        isAuthenticated: true,
       };
     } catch (error) {
       console.error('Check auth state error:', error);
@@ -140,21 +144,32 @@ const authSlice = createSlice({
         state.userId = null;
       })
       .addCase(logout.fulfilled, () => initialState)
+      // Check auth state cases
       .addCase(checkAuthState.pending, (state) => {
-        state.loading = true;
+        if (!state.isAuthenticated) {
+          state.loading = true;
+        }
       })
       .addCase(checkAuthState.fulfilled, (state, action) => {
-        state.isAuthenticated = true;
-        state.loading = false;
-        state.role = action.payload.role;
-        state.user = action.payload.user;
-        state.userId = action.payload.userId;
-        state.error = null;
+        if (action.payload) {
+          state.isAuthenticated = true;
+          state.loading = false;
+          state.role = action.payload.role;
+          state.user = action.payload.user;
+          state.userId = action.payload.userId;
+          state.error = null;
+        } else {
+          state.loading = false;
+        }
       })
-      .addCase(checkAuthState.rejected, () => ({
-        ...initialState,
-        loading: false
-      }));
+      // eslint-disable-next-line no-unused-vars
+      .addCase(checkAuthState.rejected, (state) => {
+        localStorage.clear();
+        return {
+          ...initialState,
+          loading: false
+        };
+      });
   }
 });
 

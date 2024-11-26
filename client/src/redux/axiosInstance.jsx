@@ -20,18 +20,30 @@ axiosInstance.interceptors.request.use(
 );
 
 // Response interceptor
+// Response interceptor
 axiosInstance.interceptors.response.use(
     response => response,
     async error => {
         const originalRequest = error.config;
         
+        // Don't attempt refresh if this is a login request that failed
+        if (originalRequest.url.includes('/login')) {
+            return Promise.reject(error);
+        }
+        
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
             const refreshToken = localStorage.getItem('refreshToken');
             
+            // Only attempt refresh if we have a refresh token
+            if (!refreshToken) {
+                localStorage.clear();
+                return Promise.reject(error);
+            }
+            
             try {
                 const { data } = await axios.post(
-                    `${axiosInstance.defaults.baseURL}api/v1/auth/refresh`,
+                    `${axiosInstance.defaults.baseURL}/auth/refresh`,
                     { refreshToken }
                 );
                 
