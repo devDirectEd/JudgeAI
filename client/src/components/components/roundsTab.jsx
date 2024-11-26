@@ -1,277 +1,364 @@
-import { useState, useEffect } from 'react'
-import { Box, Button, Flex, Stack, Text, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, Input } from '@chakra-ui/react'
-import { DownloadIcon } from '@chakra-ui/icons'
-import AddEditCriteriaModal from './add-deleteCriteriaModal'
-import RoundsTable from './roundsTable'
-import { CriteriaTable } from './criteriaTable'
-
+import { useState, useEffect } from 'react';
+import { 
+  Button,
+  Text,
+  useToast,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+} from '@chakra-ui/react';
+import { DownloadIcon } from '@chakra-ui/icons';
+import AddEditCriteriaModal from './add-deleteCriteriaModal';
+import RoundsTable from './roundsTable';
+import { CriteriaTable } from './criteriaTable';
+import { RoundsSpreadsheetLinkCard } from '../components/importFromSpreadsheet';
+import axiosInstance from '@/redux/axiosInstance';
 
 const RoundsTab = () => {
-  const [criteria, setCriteria] = useState([])
-  const [rounds, setRounds] = useState([])  // State to manage rounds
-  const [isCriteriaModalOpen, setIsCriteriaModalOpen] = useState(false)
-  const [isRoundModalOpen, setIsRoundModalOpen] = useState(false)  // State to manage rounds modal
-  const [totalWeight, setTotalWeight] = useState(0)
-  const [editingCriteriaIndex, setEditingCriteriaIndex] = useState(null)
-  const [editingRoundIndex, setEditingRoundIndex] = useState(null)  // Track round being edited
-  const [newRoundName, setNewRoundName] = useState("")  // For storing round name
+  const [selectedRound, setSelectedRound] = useState(null);
+  const [rounds, setRounds] = useState([]);
+  const [isCriteriaModalOpen, setIsCriteriaModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [editingCriteriaIndex, setEditingCriteriaIndex] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const toast = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeletingCriteria, setIsDeletingCriteria] = useState(false);
+  const [isDeletingRound, setIsDeletingRound] = useState(null); 
 
-
-  //Dummy Data
-  const roundsDummy = [
-    { "id": 1, "name": "Pre-Assessment Round" },
-    { "id": 2, "name": "Technical Evaluation Round" },
-    { "id": 3, "name": "Final Assessment Round" }
-  ]
-  const criteriaDummy = [
-    {
-      "id": 1,
-      "name": "Problem Solving",
-      "weight": 25,
-      "description": "Ability to solve problems with efficiency and creativity."
-    },
-    {
-      "id": 2,
-      "name": "Technical Knowledge",
-      "weight": 30,
-      "description": "Depth of technical expertise in relevant technologies."
-    },
-    {
-      "id": 3,
-      "name": "Communication Skills",
-      "weight": 20,
-      "description": "Ability to communicate effectively with team members and stakeholders."
-    },
-    {
-      "id": 4,
-      "name": "Team Collaboration",
-      "weight": 15,
-      "description": "Ability to work in a team and contribute to group goals."
-    },
-    {
-      "id": 5,
-      "name": "Leadership Potential",
-      "weight": 10,
-      "description": "Capacity to lead and inspire a team in future roles."
+  const fetchRounds = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axiosInstance.get("/rounds");
+      console.log("round", response.data)
+      // Assuming response.data is already the array of rounds
+      setRounds(Array.isArray(response.data) ? response.data : []);
+      toast({
+        title: "Success",
+        description: "Rounds loaded successfully",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error('Error fetching rounds:', error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to load rounds",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      setRounds([]);
+    } finally {
+      setIsLoading(false);
     }
-  ]
-    
+  };
 
+  useEffect(() => {
+    fetchRounds();
+  }, []);
 
-  // Open modal to add/edit criteria
-  const openCriteriaModal = (index = null) => {
-    setEditingCriteriaIndex(index)
-    setIsCriteriaModalOpen(true)
-  }
+  const handleRoundSelect = (round) => {
+    setSelectedRound(round);
+  };
 
-  // Close criteria modal
-  const closeCriteriaModal = () => {
-    setIsCriteriaModalOpen(false)
-    setEditingCriteriaIndex(null)
-  }
+  const getTotalWeight = (criteria) => {
+    return criteria.reduce((sum, criterion) => sum + criterion.weight, 0);
+  };
 
-
-  // Close round modal
-  const closeRoundModal = () => {
-    setIsRoundModalOpen(false)
-    setEditingRoundIndex(null)
-  }
-
-  // Handle criteria form submit (add/edit)
   const handleCriteriaSubmit = async (newCriteria) => {
+    if (!selectedRound) {
+      toast({
+        title: "Error",
+        description: "Please select a round first",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+  
     try {
-      if (editingCriteriaIndex === null) {
-        const response = await fetch('/api/criteria', {
-          method: 'POST',
-          body: JSON.stringify(newCriteria),
-          headers: { 'Content-Type': 'application/json' },
+      const updatedRoundData = {
+        name: selectedRound.name,
+        criteria: selectedRound.criteria.map(c => {
+          const weightUpdate = newCriteria.otherWeights.find(w => w.id === c._id);
+          if (weightUpdate) {
+            return {
+              id: c._id,
+              question: c.question,
+              weight: weightUpdate.weight,
+              active: c.active,
+              sub_questions: c.sub_questions
+            };
+          }
+          return {
+            id: c._id,
+            question: c.question,
+            weight: c.weight,
+            active: c.active,
+            sub_questions: c.sub_questions
+          };
         })
-        const addedCriteria = await response.json()
-        setCriteria([...criteria, addedCriteria])
-        setTotalWeight(totalWeight + newCriteria.weight)
+      };
+  
+      if (editingCriteriaIndex !== null) {
+        updatedRoundData.criteria[editingCriteriaIndex] = {
+          id: selectedRound.criteria[editingCriteriaIndex]._id,
+          question: newCriteria.name,
+          weight: newCriteria.weight,
+          active: newCriteria.active,
+          sub_questions: newCriteria.subquestions.map(sq => ({
+            question: sq
+          }))
+        };
       } else {
-        const updatedCriteria = { ...criteria[editingCriteriaIndex], ...newCriteria }
-        const response = await fetch(`/api/criteria/${updatedCriteria.id}`, {
-          method: 'PUT',
-          body: JSON.stringify(updatedCriteria),
-          headers: { 'Content-Type': 'application/json' },
-        })
-        const updatedData = await response.json()
-        const updatedCriteriaList = criteria.map((item, index) => index === editingCriteriaIndex ? updatedData : item)
-        setCriteria(updatedCriteriaList)
-        const updatedTotalWeight = updatedCriteriaList.reduce((acc, item) => acc + item.weight, 0)
-        setTotalWeight(updatedTotalWeight)
+        // Adding new criteria
+        updatedRoundData.criteria.push({
+          question: newCriteria.name,
+          weight: newCriteria.weight,
+          active: newCriteria.active,
+          sub_questions: newCriteria.subquestions.map(sq => ({
+            question: sq
+          }))
+        });
       }
-      closeCriteriaModal()
-    } catch (error) {
-      console.error("Error saving criteria:", error)
-    }
-  }
-
-  // Handle delete criteria
-  const handleDeleteCriteria = async (index) => {
-    const criteriaToDelete = criteria[index]
-    try {
-      await fetch(`/api/criteria/${criteriaToDelete.id}`, {
-        method: 'DELETE',
-      })
-      const updatedCriteria = criteria.filter((_, i) => i !== index)
-      setCriteria(updatedCriteria)
-      setTotalWeight(updatedCriteria.reduce((acc, item) => acc + item.weight, 0))
-    } catch (error) {
-      console.error("Error deleting criteria:", error)
-    }
-  }
-
-  // Handle round submit (add/edit)
-  // Handle round submit (add/edit)
-const handleRoundSubmit = async () => {
-  try {
-    const newRound = { name: newRoundName };
-    if (editingRoundIndex === null) {
-      const response = await fetch("/api/rounds", {
-        method: "POST",
-        body: JSON.stringify(newRound),
-        headers: { "Content-Type": "application/json" },
-      });
-      const addedRound = await response.json();
-      setRounds([...rounds, addedRound]);
-    } else {
-      const updatedRound = { ...rounds[editingRoundIndex], name: newRoundName };
-      const response = await fetch(`/api/rounds/${updatedRound.id}`, {
-        method: "PUT",
-        body: JSON.stringify(updatedRound),
-        headers: { "Content-Type": "application/json" },
-      });
-      const updatedData = await response.json();
-      const updatedRounds = rounds.map((round, index) =>
-        index === editingRoundIndex ? updatedData : round
+  
+      const response = await axiosInstance.put(
+        `/rounds/${selectedRound._id}`,
+        updatedRoundData
       );
+  
+      const updatedRound = response.data.round;
+      const updatedRounds = rounds.map(round => 
+        round._id === selectedRound._id ? updatedRound : round
+      );
+  
       setRounds(updatedRounds);
-    }
-    closeRoundModal();
-  } catch (error) {
-    console.error("Error saving round:", error);
-  }
-};
-
-// Open modal to add/edit round
-const openRoundModal = (index = null) => {
-  if (index !== null) {
-    setNewRoundName(rounds[index].name); // Set round name for editing
-  } else {
-    setNewRoundName(""); // Reset for adding a new round
-  }
-  setEditingRoundIndex(index); // Set the round index
-  setIsRoundModalOpen(true); // Open the modal
-};
-
-
-
-  // Handle delete round
-  const handleDeleteRound = async (index) => {
-    const roundToDelete = rounds[index]
-    try {
-      await fetch(`/api/rounds/${roundToDelete.id}`, {
-        method: 'DELETE',
-      })
-      const updatedRounds = rounds.filter((_, i) => i !== index)
-      setRounds(updatedRounds)
+      setSelectedRound(updatedRound);
+      setIsCriteriaModalOpen(false);
+      setEditingCriteriaIndex(null);
+  
+      toast({
+        title: "Success",
+        description: response.data.message || "Round updated successfully",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
     } catch (error) {
-      console.error("Error deleting round:", error)
+      console.error(error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to update round",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsSubmitting(false);
     }
-  }
-
+  } 
+  
+  // Update handleDeleteCriteria
+  const handleDeleteCriteria = async (index) => {
+    setIsDeletingCriteria(true);
+    try {
+      const updatedRoundData = {
+        name: selectedRound.name,
+        criteria: selectedRound.criteria.filter((_, i) => i !== index)
+          .map(c => ({
+            id: c._id,
+            question: c.question,
+            weight: c.weight,
+            sub_questions: c.sub_questions
+          }))
+      };
+  
+      const response = await axiosInstance.put(
+        `/rounds/${selectedRound._id}`,
+        updatedRoundData
+      );
+  
+      // Extract round data from response
+      const updatedRound = response.data.round;
+  
+      // Update local state
+      const updatedRounds = rounds.map(round => 
+        round._id === selectedRound._id ? updatedRound : round
+      );
+  
+      setRounds(updatedRounds);
+      setSelectedRound(updatedRound);
+  
+      toast({
+        title: "Success",
+        description: response.data.message || "Criteria deleted successfully",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to delete criteria",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsDeletingCriteria(false);
+    }
+  };
   
 
-  // Fetch initial data on mount
-  useEffect(() => {
-    const fetchRounds = async () => {
-      try {
-        setRounds(roundsDummy)
-        //const response = await fetch('/api/rounds')
-        //const data = await response.json()
-        //setRounds(data)
-      } catch (error) {
-        console.error("Error fetching rounds:", error)
+  const handleDeleteRound = async (roundId) => {
+    setIsDeletingRound(roundId);
+    try {
+      await axiosInstance.delete(`/rounds/${roundId}`);
+      
+      const updatedRounds = rounds.filter(round => round._id !== roundId);
+      setRounds(updatedRounds);
+      
+      if (selectedRound?._id === roundId) {
+        setSelectedRound(null);
       }
+
+      toast({
+        title: "Success",
+        description: "Round deleted successfully",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to delete round",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsDeletingRound(null);
     }
-
-
-    const fetchCriteria = async () => {
-      try {
-        setCriteria(criteriaDummy)
-        //const response = await fetch('/api/criteria')
-        //const data = await response.json()
-        //setCriteria(criteriaDummy)
-        const totalWeight = criteriaDummy.reduce((acc, item) => acc + item.weight, 0)
-        setTotalWeight(totalWeight)
-      } catch (error) {
-        console.error("Error fetching criteria:", error)
-      }
-    }
-
-    
-    fetchCriteria()
-    fetchRounds()
-}, []);
+  };
 
   return (
-    <Box>
-      {/* Buttons for Add Round and Import */}
-      <Stack direction='row' spacing='4' justify={'flex-end'} my='5px'>
-        <Button leftIcon={<DownloadIcon />} color='white' bg='black' >Import</Button>
-      </Stack>
+    <div className="w-full space-y-6">
+      <div className="flex justify-end">
+        <Button
+          leftIcon={<DownloadIcon />}
+          className="bg-[#18181B] text-white hover:bg-[#27272A]"
+          onClick={() => setIsImportModalOpen(true)}
+          isDisabled={isLoading}
+        >
+          Import
+        </Button>
+      </div>
 
-      <Box bg='blackAlpha.400' paddingY='8px' paddingX='10%' borderRadius='10px'>
-        {/* Rounds Table */}
-        <RoundsTable rounds={rounds} onEdit={openRoundModal} onDelete={handleDeleteRound} />
+      <div className="bg-gray-100 rounded-lg p-6">
+        <RoundsTable 
+          rounds={rounds}
+          selectedRound={selectedRound}
+          onSelect={handleRoundSelect}
+          onDelete={handleDeleteRound}
+          isLoading={isLoading}
+          isDeletingRound={isDeletingRound}
+        />
 
-        {/* Evaluation Criteria Table */}
-        <Box mt='15px'>
-          <CriteriaTable
-            criteria={criteria}
-            onEdit={openCriteriaModal}
-            onDelete={handleDeleteCriteria}
-          />
-          <AddEditCriteriaModal
-            isOpen={isCriteriaModalOpen}
-            onClose={closeCriteriaModal}
-            onSubmit={handleCriteriaSubmit}
-            existingCriteria={editingCriteriaIndex !== null ? criteria[editingCriteriaIndex] : null}
-            index={editingCriteriaIndex}
-            totalWeight={totalWeight}
-          />
-        </Box>
-        
-        {/* Display Total Weight */}
-        <Flex justifyContent={'space-between'} marginTop={"10px"} padding={"5px"}>
-          <Text fontSize="xl" fontWeight="bold" mb={4}>Total Weight</Text>
-          <Text fontSize="xl" fontWeight="bold" mb={4} color={"green"}>{totalWeight}%</Text>
-          
-        </Flex>
-      </Box>
+        {selectedRound && (
+          <div className="mt-6">
+            <div className="flex justify-between items-center mb-4">
+              <Text fontSize="xl" fontWeight="bold">
+                Criteria for {selectedRound.name}
+              </Text>
+              <Button
+                onClick={() => {
+                  setEditingCriteriaIndex(null);
+                  setIsCriteriaModalOpen(true);
+                }}
+                className="bg-[#18181B] text-white hover:bg-[#27272A]"
+                isDisabled={isLoading || isSubmitting || isDeletingCriteria}  // Add all relevant loading states
+              >
+                Add Criteria
+              </Button>
+            </div>
 
-      {/* Add/Edit Round Modal */}
-      <Modal isOpen={isRoundModalOpen} onClose={closeRoundModal}>
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>{editingRoundIndex === null ? 'Add Round' : 'Edit Round'}</ModalHeader>
-          <ModalBody>
-            <Input
-              value={newRoundName}
-              onChange={(e) => setNewRoundName(e.target.value)}
-              placeholder="Round Name"
+            <CriteriaTable
+              criteria={selectedRound.criteria.map(c => ({
+                id: c._id,
+                name: c.question,
+                weight: c.weight,
+                active: c.active,
+                subquestions: c.sub_questions.map(sq => sq.question)
+              }))}
+              onEdit={(criteria) => {
+                setEditingCriteriaIndex(selectedRound.criteria.findIndex(c => c._id === criteria.id));
+                setIsCriteriaModalOpen(true);
+              }}
+              onDelete={handleDeleteCriteria}
+              isDeletingCriteria={isDeletingCriteria}
             />
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" onClick={closeRoundModal}>Cancel</Button>
-            <Button colorScheme="blue" onClick={handleRoundSubmit}>Save</Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-    </Box>
-  )
-}
+
+            <div className="flex justify-between items-center mt-4 p-4 bg-white rounded-lg">
+              <span className="text-xl font-bold">Total Weight</span>
+              <span className={`text-xl font-bold ${
+                getTotalWeight(selectedRound.criteria) === 100 
+                  ? 'text-green-600' 
+                  : 'text-yellow-600'
+              }`}>
+                {getTotalWeight(selectedRound.criteria)}%
+              </span>
+            </div>
+          </div>
+        )}
+
+        <AddEditCriteriaModal
+              isOpen={isCriteriaModalOpen}
+              onClose={() => {
+                setIsCriteriaModalOpen(false);
+                setEditingCriteriaIndex(null);
+              }}
+              onSubmit={handleCriteriaSubmit}
+              existingCriteria={editingCriteriaIndex !== null ? {
+                id: selectedRound?.criteria[editingCriteriaIndex]._id,
+                name: selectedRound?.criteria[editingCriteriaIndex].question,
+                weight: selectedRound?.criteria[editingCriteriaIndex].weight,
+                hasSubquestions: selectedRound?.criteria[editingCriteriaIndex].active,
+                subquestions: selectedRound?.criteria[editingCriteriaIndex].sub_questions.map(sq => sq.question)
+              } : null}
+              totalWeight={selectedRound ? getTotalWeight(selectedRound.criteria) : 0}
+              otherCriteria={selectedRound?.criteria.map(c => ({
+                id: c._id,
+                name: c.question,
+                weight: c.weight
+              })) || []}
+              isSubmitting={isSubmitting}
+            />
+
+        <Modal 
+          isOpen={isImportModalOpen} 
+          onClose={() => setIsImportModalOpen(false)}
+        >
+          <ModalOverlay />
+          <ModalContent>
+            <RoundsSpreadsheetLinkCard
+              onClose={() => setIsImportModalOpen(false)}
+              onSuccess={fetchRounds}
+              templateUrl="https://docs.google.com/spreadsheets/d/1yEyk_e46b5ivJM8mVtBHaOVeK3e49V5o2T1ICb0x4oY/edit?usp=sharing"
+              descriptionText="To import rounds and criteria, enter in a link to the spreadsheet with their details."
+            />
+          </ModalContent>
+        </Modal>
+      </div>
+    </div>
+  );
+};
 
 export default RoundsTab;
