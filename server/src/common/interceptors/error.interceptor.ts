@@ -1,0 +1,50 @@
+import {
+    Injectable,
+    NestInterceptor,
+    ExecutionContext,
+    CallHandler,
+    Logger,
+    HttpException,
+    HttpStatus,
+  } from '@nestjs/common';
+  import { Observable, throwError } from 'rxjs';
+  import { catchError } from 'rxjs/operators';
+  
+  @Injectable()
+  export class GlobalErrorInterceptor implements NestInterceptor {
+    private readonly logger = new Logger(GlobalErrorInterceptor.name);
+  
+    intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+      return next.handle().pipe(
+        catchError((error) => {
+          let status = HttpStatus.INTERNAL_SERVER_ERROR;
+          let message = 'Internal server error';
+          if (error instanceof HttpException) {
+            status = error.getStatus();
+            message = error.message;
+          } else if (error instanceof Error) {
+            message = error.message;
+            status = error['code'] || error['status'] || status;
+          }
+  
+          this.logger.error(
+            `Error occurred: ${message}`,
+            error.stack,
+            `${context.getClass().name} - ${context.getHandler().name}`,
+          );
+  
+          return throwError(
+            () =>
+              new HttpException(
+                {
+                  status,
+                  error: message,
+                },
+                status,
+              ),
+          );
+        }),
+      );
+    }
+  }
+  
