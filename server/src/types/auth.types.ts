@@ -1,9 +1,14 @@
 export interface JwtPayload {
   userId: string;
   email: string;
-  role?: string;
+  role: UserRole;
+  roleId: string; // ID from either Admin or Judge collection
+  entityId?: string;
 }
-
+export enum UserRole {
+  ADMIN = 'admin',
+  JUDGE = 'judge'
+}
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
@@ -13,3 +18,4 @@ export interface LoginResponse {
     role: string;
   };
 }
+

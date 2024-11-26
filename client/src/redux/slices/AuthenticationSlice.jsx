@@ -39,32 +39,32 @@ export const login = createAsyncThunk(
 async ({ credentials, pathname }, { rejectWithValue }) => {
   try {
     const role = pathname.includes('/admin/') ? 'admin' : 'judge';
-    const loginUrl = `api/v1/${role}/login`;
+    const loginUrl = `api/v1/auth/${role}/login`;
 
     const response = await axiosInstance.post(loginUrl, credentials);
     
-    const { token: tokenData } = response.data;
+    const tokenData = response.data;
     if (role === "judge") {
-      const { token, judge, role: responseRole } = tokenData;
+      const { accessToken:token, user } = tokenData;
       setAuthToken(token);
-      localStorage.setItem('role', responseRole);
-      localStorage.setItem('userId', judge.id);
+      localStorage.setItem('role', user.role);
+      localStorage.setItem('userId', user.id);
       return {
         token,
-        user: judge,
-        role: responseRole,
-        userId: judge.id
+        user,
+        role:user.role,
+        userId: user.id
       };
     } else if (role === "admin") {
-      const { token, admin, role: responseRole } = tokenData;
+      const { accessToken:token, user } = tokenData;
       setAuthToken(token);
-      localStorage.setItem('role', responseRole);
-      localStorage.setItem('userId', admin.id);
+      localStorage.setItem('role', user.role);
+      localStorage.setItem('userId', user.id);
       return {
         token,
-        user: admin,
-        role: responseRole,
-        userId: admin.id
+        user,
+        role: user.role,
+        userId: user.id
       };
     }
   } catch (error) {
