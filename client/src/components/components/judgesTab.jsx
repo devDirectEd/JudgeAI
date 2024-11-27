@@ -1,8 +1,5 @@
 import { useState, useEffect } from 'react';
 import {
-  Box,
-  Button,
-  Stack,
   Modal,
   ModalOverlay,
   ModalContent,
@@ -12,224 +9,328 @@ import {
   Input,
   InputRightElement,
   InputGroup,
-  Toast,
+  useToast,
+  Spinner,
 } from '@chakra-ui/react';
 import { AddIcon, SearchIcon } from '@chakra-ui/icons';
 import JudgesTable from './judgesTable';
 import { DownloadIcon, UploadIcon } from 'lucide-react';
-import SpreadsheetLinkCard from '../components/importFromSpreadsheet';
-import axios from 'axios';
+import { JudgesSpreadsheetLinkCard } from '../components/importFromSpreadsheet';
+import axiosInstance from '@/redux/axiosInstance';
+import { Button } from "@/components/ui/button";
+
+const initialModalData = {
+  _id: '',
+  entityId: '',
+  firstname: '',
+  lastname: '',
+  email: '',
+  password: '',
+  expertise: '',
+  schedules: [],
+};
 
 const JudgesTab = () => {
+  const toast = useToast();
+  
+  // State
   const [judges, setJudges] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [modalData, setModalData] = useState(initialModalData);
+  
+  // UI State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalData, setModalData] = useState({
-    judgeId: '',
-    firstname: '',
-    lastname: '',
-    email: '',
-    password: '',
-    expertise: '',
-    schedules: [],
-    feedback: [],
-  });
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const apiEndpoint = '{{url}}/api/v1/judges'; // Replace with your actual endpoint
+  // Fetch judges on component mount
+  useEffect(() => {
+    fetchJudges();
+  }, []);
 
-  const [isLoading, setIsLoading] = useState(true);
-
-useEffect(() => {
   const fetchJudges = async () => {
+    setIsLoading(true);
     try {
-      const response = await axios.get(apiEndpoint);
+      const response = await axiosInstance.get("/judges");
       setJudges(Array.isArray(response.data) ? response.data : []);
+      toast({
+        title: "Success",
+        description: "Judges loaded successfully",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
     } catch (error) {
       console.error('Error fetching judges:', error);
-      setJudges([]);
+      toast({
+        title: "Error",
+        description: "Failed to load judges",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
     } finally {
       setIsLoading(false);
     }
   };
-  fetchJudges();
-}, []);
 
-if (isLoading) {
-  return <Box textAlign="center">Loading judges...</Box>;
-}
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setModalData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
+  const validateForm = () => {
+    const requiredFields = ['firstname', 'lastname', 'email', 'expertise', 'entityId'];
+    const missingFields = requiredFields.filter(field => !modalData[field]);
+    
+    if (missingFields.length > 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      return false;
+    }
+    return true;
+  };
 
-  // Handle Save Judge
   const handleSaveJudge = async () => {
+    if (!validateForm()) return;
+    
+    setIsSaving(true);
     try {
-      if (modalData.judgeId) {
+      if (modalData._id) {
         // Update existing judge
-        await axios.put(`${apiEndpoint}/${modalData.judgeId}`, modalData);
-        setJudges((prev) =>
-          prev.map((judge) =>
-            judge.judgeId === modalData.judgeId ? { ...judge, ...modalData } : judge
+        console.log("update modal data" ,modalData)
+        const response = await axiosInstance.put(`/judges/${modalData._id}`, modalData);
+        setJudges(prev =>
+          prev.map(judge =>
+            judge._id === modalData._id ? response.data : judge
           )
         );
-      } else {
-        // Add new judge
-        const response = await axios.post(apiEndpoint, {
-          ...modalData,
-          schedules: [],
-          feedback: [],
+        toast({
+          title: "Success",
+          description: "Judge updated successfully",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
         });
-        setJudges((prev) => [...prev, response.data]);
+      } else {
+        // Create new judge
+        console.log("passed create judge data",modalData)
+        const response = await axiosInstance.post("/judges", modalData);
+        console.log("add judge response", response.data)
+        setJudges(prev => [...prev, response.data]);
+        toast({
+          title: "Success",
+          description: "New judge added successfully",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
       }
-      setIsModalOpen(false);
-      setModalData({
-        judgeId: '',
-        firstname: '',
-        lastname: '',
-        email: '',
-        password: '',
-        expertise: '',
-        schedules: [],
-        feedback: [],
+      handleCloseModal();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to save judge",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteJudge = async (id) => {
+    const confirmDelete = window.confirm('Are you sure you want to delete this judge?');
+    if (!confirmDelete) return;
+
+    try {
+      await axiosInstance.delete(`/judges/${id}`);
+      setJudges(prev => prev.filter(judge => judge._id !== id));
+      toast({
+        title: "Success",
+        description: "Judge deleted successfully",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
       });
     } catch (error) {
-      console.error('Error saving judge:', error);
-      Toast({
-        title: 'An error occurred.',
-        description: 'Unable to save judge. Please try again later.',
-        status: 'error',
-        duration: 5000,
+      console.error('Error deleting judge:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete judge",
+        status: "error",
+        duration: 3000,
         isClosable: true,
       });
     }
   };
 
-  // Handle Delete Judge
-  const handleDeleteJudge = async (judgeId) => {
-    const confirmDelete = window.confirm('Are you sure you want to delete this judge?');
-    if (confirmDelete) {
-      try {
-        await axios.delete(`${apiEndpoint}/${judgeId}`);
-        setJudges((prev) => prev.filter((judge) => judge.judgeId !== judgeId));
-      } catch (error) {
-        console.error('Error deleting judge:', error);
-      }
-    }
+  const handleCloseModal = () => {
+    setModalData(initialModalData);
+    setIsModalOpen(false);
   };
 
-  // Open modal for add/edit
-  const openJudgesModal = (judge = {
-    judgeId: '',
-    firstname: '',
-    lastname: '',
-    email: '',
-    password: '',
-    expertise: '',
-    schedules: [],
-    feedback: [],
-  }) => {
-    setModalData(judge);
+  const handleOpenModal = (judge = null) => {
+    setModalData(judge || initialModalData);
     setIsModalOpen(true);
   };
 
-
   const filteredJudges = Array.isArray(judges)
-  ? judges.filter(
-      (judge) =>
-        judge.firstname.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        judge.lastname.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        judge.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        judge.expertise.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  : [];
-
-  
+    ? judges.filter(judge =>
+        [judge.firstname, judge.lastname, judge.email, judge.expertise]
+          .some(field => field?.toLowerCase().includes(searchQuery.toLowerCase()))
+      )
+    : [];
 
   return (
-    <Box>
-      {/* Search and Buttons */}
-      <Stack direction="row" spacing="4" justifyContent="space-between" marginY="10px">
-        <InputGroup w="400px">
-          <InputRightElement pointerEvents="none">
-            <SearchIcon color="gray.300" />
-          </InputRightElement>
-          <Input
-            variant="outline"
-            placeholder="Search judges..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </InputGroup>
-        <Box>
+    <div className="w-full space-y-6">
+      {/* Header Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+        {/* Search Bar */}
+        <div className="w-full max-w-xl">
+          <InputGroup>
+            <InputRightElement pointerEvents="none">
+              <SearchIcon color="gray.300" />
+            </InputRightElement>
+            <Input
+              variant="outline"
+              placeholder="Search judges..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </InputGroup>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
           <Button
-            leftIcon={<AddIcon />}
-            color="white"
-            bg="black"
-            mx="2"
-            onClick={() => openJudgesModal()}
+            variant="default"
+            className="bg-[#18181B] hover:bg-[#27272A]"
+            onClick={() => handleOpenModal()}
+            disabled={isLoading}
           >
+            <AddIcon className="mr-2 h-4 w-4" />
             Add Judge
           </Button>
-          <Button leftIcon={<DownloadIcon />} color="white" bg="black" mx="2" onClick={() => setIsImportModalOpen(true)}>
+          <Button
+            variant="outline"
+            className="bg-[#E4E4E7] text-[#18181B] border-[#18181B] hover:bg-[#F4F4F5]"
+            onClick={() => setIsImportModalOpen(true)}
+            disabled={isLoading}
+          >
+            <DownloadIcon className="mr-2 h-4 w-4" />
             Import
           </Button>
-          <Button leftIcon={<UploadIcon />} color="white" bg="black" mx="2">
+          <Button
+            variant="outline"
+            className="bg-[#E4E4E7] text-[#18181B] border-[#18181B] hover:bg-[#F4F4F5]"
+            disabled={isLoading}
+          >
+            <UploadIcon className="mr-2 h-4 w-4" />
             Export
           </Button>
-        </Box>
-      </Stack>
+        </div>
+      </div>
 
-      {/* Judges Table or Empty State */}
-      <Box bg="blackAlpha.100" paddingY="8px" paddingX="10%" borderRadius="10px">
-        {judges.length > 0 ? (
-          <JudgesTable judges={filteredJudges} onEdit={openJudgesModal} onDelete={handleDeleteJudge} />
+      {/* Table Section */}
+      <div className="bg-gray-50 rounded-lg p-6">
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <Spinner size="xl" color="blue.500" />
+          </div>
+        ) : judges.length > 0 ? (
+          <JudgesTable 
+            judges={filteredJudges} 
+            onEdit={handleOpenModal} 
+            onDelete={handleDeleteJudge}
+          />
         ) : (
-          <Box textAlign="center" color="gray.500" py="20px">
+          <div className="text-center text-gray-500 py-8">
             No judges have been added yet.
-          </Box>
+          </div>
         )}
-      </Box>
-
+      </div>
 
       {/* Add/Edit Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+      <Modal isOpen={isModalOpen} onClose={handleCloseModal}>
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>{modalData.judgeId ? 'Edit Judge' : 'Add Judge'}</ModalHeader>
+          <ModalHeader>{modalData._id ? 'Edit Judge' : 'Add Judge'}</ModalHeader>
           <ModalBody>
-            <Stack spacing="4">
+            <div className="space-y-4">
               <Input
+                name="firstname"
                 placeholder="First Name"
                 value={modalData.firstname}
-                onChange={(e) => setModalData({ ...modalData, firstname: e.target.value })}
+                onChange={handleInputChange}
+                isDisabled={isSaving}
               />
               <Input
+                name="lastname"
                 placeholder="Last Name"
                 value={modalData.lastname}
-                onChange={(e) => setModalData({ ...modalData, lastname: e.target.value })}
+                onChange={handleInputChange}
+                isDisabled={isSaving}
               />
               <Input
+                name="email"
                 placeholder="Email"
                 value={modalData.email}
-                onChange={(e) => setModalData({ ...modalData, email: e.target.value })}
+                onChange={handleInputChange}
+                isDisabled={isSaving}
               />
               <Input
-                placeholder="Password"
-                type="password"
-                value={modalData.password}
-                onChange={(e) => setModalData({ ...modalData, password: e.target.value })}
+                name="entityId"
+                placeholder="Entity ID"
+                value={modalData.entityId}
+                onChange={handleInputChange}
+                isDisabled={isSaving}
               />
               <Input
+                name="expertise"
                 placeholder="Expertise"
                 value={modalData.expertise}
-                onChange={(e) => setModalData({ ...modalData, expertise: e.target.value })}
+                onChange={handleInputChange}
+                isDisabled={isSaving}
               />
-            </Stack>
+              {modalData._id && (
+                <Input
+                  name="password"
+                  placeholder="Password"
+                  type="password"
+                  value={modalData.password}
+                  onChange={handleInputChange}
+                  isDisabled={isSaving}
+                />
+              )}
+            </div>
           </ModalBody>
           <ModalFooter>
-            <Button colorScheme="blue" onClick={handleSaveJudge}>
-              Save
+            <Button
+              variant="default"
+              className="bg-blue-600 hover:bg-blue-700 mr-3"
+              onClick={handleSaveJudge}
+              disabled={isSaving}
+            >
+              {isSaving ? 'Saving...' : 'Save'}
             </Button>
-            <Button onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button
+              variant="outline"
+              onClick={handleCloseModal}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
@@ -238,14 +339,15 @@ if (isLoading) {
       <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)}>
         <ModalOverlay />
         <ModalContent>
-          <SpreadsheetLinkCard
+          <JudgesSpreadsheetLinkCard
             onClose={() => setIsImportModalOpen(false)}
-            templateUrl="https://docs.google.com/spreadsheets/d/.../edit?gid=0#gid=0"
+            onSuccess={fetchJudges}
+            templateUrl="https://docs.google.com/spreadsheets/d/1gG6z-Tz0gbdkGQngVWU3L8gPJRwPb2NN_HawGKTFyhs/edit?usp=sharing"
             descriptionText="To import a list of judges, enter in a link to the spreadsheet with their details."
           />
         </ModalContent>
       </Modal>
-    </Box>
+    </div>
   );
 };
 

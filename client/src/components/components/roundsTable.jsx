@@ -1,62 +1,70 @@
 /* eslint-disable react/prop-types */
-import {
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
-  IconButton,
-  Box,
-  Text,
-} from "@chakra-ui/react";
-import { EditIcon, DeleteIcon } from "@chakra-ui/icons";
+import { Button } from "@/components/ui/button"
+import { DeleteIcon, Spinner } from "@chakra-ui/icons"
 
-// In RoundsTable, update the onEdit function to pass the index instead of the round object
-const RoundsTable = ({ rounds, onEdit, onDelete }) => {
+const RoundsTable = ({ rounds, onSelect, selectedRound, onDelete, isDeletingRound = null, isLoading = false }) => {
   return (
-    <Box overflowX="auto">
-      {rounds.length === 0 ? (
-        <Box textAlign="center" p={5}  borderRadius="md">
-          <Text fontSize="lg" fontWeight="bold" mb={3}>
-            Oops! Seems no round has been added.
-          </Text>
-        </Box>
-      ) : (
-        <Table variant="simple" w='full' bg='white' padding='5px' borderRadius='md' my='10px'>
-          <Thead>
-            <Tr>
-              <Th w={"85%"}>Round Name</Th>
-              <Th>Actions</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {rounds.map((round, index) => (
-              <Tr key={index}>
-                <Td>{round.name}</Td>
-                <Td>
-                <IconButton
-                  aria-label="Edit"
-                  icon={<EditIcon/>}
+    <div className="bg-white rounded-lg shadow-sm overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead>
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Round Name
+            </th>
+            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {isLoading ? 
+          <div className="flex justify-center items-center h-64">
+            <Spinner size="xl" color="blue.500" />
+          </div>
+          :
+          rounds.length === 0 ? (
+            <tr>
+              <td colSpan={2} className="px-6 py-4 text-center text-gray-500">
+                No rounds have been added yet.
+              </td>
+            </tr>
+          ) : (
+            rounds.map((round) => (
+              <tr 
+                key={round._id} 
+                className={`hover:bg-gray-50 cursor-pointer ${
+                  selectedRound?._id === round._id ? 'bg-blue-50' : ''
+                }`}
+              >
+                <td 
+                  className="px-6 py-4"
+                  onClick={() => onSelect(round)}
+                >
+                  <div className="text-sm font-medium text-gray-900">
+                    {round.name}
+                  </div>
+                </td>
+                <td className="px-6 py-4 text-right">
+                <Button
+                  variant="ghost"
                   size="sm"
-                  color="black"
-                  onClick={() => onEdit(round)}
-                  mr={2}
-                />
-                <IconButton
-                  aria-label="Delete"
-                  icon={<DeleteIcon/>}
-                  size="sm"
-                  color="black"
-                  onClick={() => onDelete(index)}
-                />
-              </Td>
-              </Tr>
-            ))}
-          </Tbody>
-        </Table>
-      )}
-    </Box>
+                  className="text-red-600 hover:text-red-800"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(round._id);
+                  }}
+                  isLoading={isDeletingRound === round._id}
+                  loadingText=""
+                >
+                  <DeleteIcon className="h-4 w-4" />
+                </Button>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 };
 

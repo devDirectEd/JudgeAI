@@ -7,17 +7,30 @@ import {
   Td,
   IconButton,
   Box,
+  Spinner,
 } from "@chakra-ui/react";
 import { DeleteIcon, EditIcon } from "@chakra-ui/icons";
 import PropTypes from 'prop-types';
+import { useState } from 'react';
 
 const JudgesTable = ({ judges, onEdit, onDelete }) => {
+  const [deletingId, setDeletingId] = useState(null);
+
+  const handleDelete = async (judgeId) => {
+    setDeletingId(judgeId);
+    try {
+      await onDelete(judgeId);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <Box overflowX="auto" bg='white' padding='5px' borderRadius="md">
       <Table variant="simple">
-        <Thead >
+        <Thead>
           <Tr>
-            <Th>ID Number</Th>
+            <Th>Entity ID</Th>
             <Th>Name</Th>
             <Th>Expertise</Th>
             <Th>Email</Th>
@@ -26,13 +39,13 @@ const JudgesTable = ({ judges, onEdit, onDelete }) => {
           </Tr>
         </Thead>
         <Tbody>
-          {judges.map((judge, index) => (
-            <Tr key={index}>
-              <Td>{judge.idNumber}</Td>
-              <Td>{judge.name}</Td>
+          {judges.map((judge) => (
+            <Tr key={judge._id}>
+              <Td>{judge.entityId}</Td>
+              <Td>{`${judge.firstname} ${judge.lastname}`}</Td>
               <Td>{judge.expertise}</Td>
               <Td>{judge.email}</Td>
-              <Td>{judge.currentLoad}</Td>
+              <Td className="text-center">{judge.schedules?.length || 0}</Td>
               <Td>
                 <IconButton
                   aria-label="Edit Judge"
@@ -41,13 +54,15 @@ const JudgesTable = ({ judges, onEdit, onDelete }) => {
                   color="black"
                   onClick={() => onEdit(judge)}
                   mr={2}
+                  isDisabled={deletingId === judge._id}
                 />
                 <IconButton
                   aria-label="Delete Judge"
-                  icon={<DeleteIcon />}
+                  icon={deletingId === judge._id ? <Spinner size="sm" /> : <DeleteIcon />}
                   size="sm"
                   color="black"
-                  onClick={() => onDelete(judge.id)}
+                  onClick={() => handleDelete(judge._id)}
+                  isDisabled={deletingId === judge._id}
                 />
               </Td>
             </Tr>
@@ -59,18 +74,22 @@ const JudgesTable = ({ judges, onEdit, onDelete }) => {
 };
 
 JudgesTable.propTypes = {
-    judges: PropTypes.arrayOf(
-      PropTypes.shape({
-        id: PropTypes.string.isRequired,
-        idNumber: PropTypes.string.isRequired,
-        name: PropTypes.string.isRequired,
-        expertise: PropTypes.string.isRequired,
-        email: PropTypes.string.isRequired,
-        currentLoad: PropTypes.string.isRequired,
-      })
-    ).isRequired,
-    onEdit: PropTypes.func.isRequired,
-    onDelete: PropTypes.func.isRequired,
-  };
+  judges: PropTypes.arrayOf(
+    PropTypes.shape({
+      _id: PropTypes.string.isRequired,
+      entityId: PropTypes.string.isRequired,
+      firstname: PropTypes.string.isRequired,
+      lastname: PropTypes.string.isRequired,
+      expertise: PropTypes.string.isRequired,
+      email: PropTypes.string.isRequired,
+      password: PropTypes.string,
+      schedules: PropTypes.array,
+      createdAt: PropTypes.string,
+      updatedAt: PropTypes.string,
+    })
+  ).isRequired,
+  onEdit: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+};
 
 export default JudgesTable;

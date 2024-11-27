@@ -6,120 +6,95 @@ const initialState = {
   loading: false,
   user: null,
   error: null,
-  token: null,
   role: null,
   userId: null,
-};
-
-const setAuthToken = (token) => {
-if (token) {
-  localStorage.setItem('token', token);
-  axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-} else {
-  localStorage.removeItem('token');
-  delete axiosInstance.defaults.headers.common['Authorization'];
-}
 };
 
 export const signup = createAsyncThunk(
   'auth/signup',
   async (userData, { rejectWithValue }) => {
     try {
-      await axiosInstance.post('/api/v1/admin/signup', userData);
+      await axiosInstance.post('/auth/admin/signup', userData);
       return true;
     } catch (error) {
       console.error('Signup error:', error);
-      return rejectWithValue(error.response?.data?.message || 'Signup failed');
+      return rejectWithValue(error.response?.data?.error || 'Signup failed');
     }
   }
 );
 
 export const login = createAsyncThunk(
-'auth/login',
-async ({ credentials, pathname }, { rejectWithValue }) => {
-  try {
-    const role = pathname.includes('/admin/') ? 'admin' : 'judge';
-    const loginUrl = `api/v1/auth/${role}/login`;
+  'auth/login',
+  async ({ credentials, pathname }, { rejectWithValue }) => {
+    try {
+      const role = pathname.includes('/admin/') ? 'admin' : 'judge';
+      const loginUrl = `/auth/${role}/login`;
 
-    const response = await axiosInstance.post(loginUrl, credentials);
-    
-    const tokenData = response.data;
-    if (role === "judge") {
-      const { accessToken:token, user } = tokenData;
-      setAuthToken(token);
+      const response = await axiosInstance.post(loginUrl, credentials);
+      const { accessToken, refreshToken, user } = response.data;
+      
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('role', user.role);
       localStorage.setItem('userId', user.id);
+
       return {
-        token,
-        user,
-        role:user.role,
-        userId: user.id
-      };
-    } else if (role === "admin") {
-      const { accessToken:token, user } = tokenData;
-      setAuthToken(token);
-      localStorage.setItem('role', user.role);
-      localStorage.setItem('userId', user.id);
-      return {
-        token,
         user,
         role: user.role,
         userId: user.id
       };
+    } catch (error) {
+      console.error('Login error:', error);
+      return rejectWithValue(error.response?.data?.error || 'Login failed');
     }
-  } catch (error) {
-    console.error('Login error:', error);
-    return rejectWithValue(error.response?.data?.message || 'Login failed');
   }
-}
 );
 
 export const checkAuthState = createAsyncThunk(
-'auth/checkState',
-async (_, { rejectWithValue }) => {
-  try {
-    const token = localStorage.getItem('token');
-    const role = localStorage.getItem('role');
-    const userId = localStorage.getItem('userId');
-
-    if (!token || !role || !userId) {
-      return rejectWithValue('No auth data found');
+  'auth/checkState',
+  async (_, { rejectWithValue, getState }) => {
+    // Early return if already authenticated
+    const state = getState();
+    if (state.auth.isAuthenticated) {
+      return null;
     }
 
-    setAuthToken(token);
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      const role = localStorage.getItem('role');
+      const userId = localStorage.getItem('userId');
 
-    // Fetch user data if needed
-    let userData = null;
-    if (role === 'judge') {
-      const response = await axiosInstance.get(`/api/v1/judges/${userId}`);
-      userData = response.data;
-    } else if (role === 'admin') {
-      const response = await axiosInstance.get(`/api/v1/admin/${userId}`);
-      userData = response.data;
+      if (!accessToken || !role || !userId) {
+        return rejectWithValue('No auth data found');
+      }
+
+      // Fetch user data if needed
+      let userData = null;
+      if (role === 'judge') {
+        const response = await axiosInstance.get(`/judges/${userId}`);
+        userData = response.data;
+      } else if (role === 'admin') {
+        const response = await axiosInstance.get(`/admin/${userId}`);
+        userData = response.data;
+      }
+
+      return {
+        role,
+        userId,
+        isAuthenticated: true,
+      };
+    } catch (error) {
+      console.error('Check auth state error:', error);
+      localStorage.clear();
+      return rejectWithValue('Session expired');
     }
-
-    return {
-      token,
-      role,
-      userId,
-      user: userData || { _id: userId },
-      isAuthenticated: true
-    };
-  } catch (error) {
-    console.error('Check auth state error:', error);
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    localStorage.removeItem('userId');
-    return rejectWithValue('Session expired');
   }
-}
 );
 
 export const logout = createAsyncThunk(
   'auth/logout',
   async () => {
-    setAuthToken(null);
-    localStorage.clear()
+    localStorage.clear();
     return null;
   }
 );
@@ -142,7 +117,6 @@ const authSlice = createSlice({
       .addCase(signup.fulfilled, (state) => {
         state.loading = false;
         state.error = null;
-        // Don't modify auth state on signup success
       })
       .addCase(signup.rejected, (state, action) => {
         state.loading = false;
@@ -156,7 +130,6 @@ const authSlice = createSlice({
       .addCase(login.fulfilled, (state, action) => {
         state.isAuthenticated = true;
         state.loading = false;
-        state.token = action.payload.token;
         state.role = action.payload.role;
         state.user = action.payload.user;
         state.userId = action.payload.userId;
@@ -166,26 +139,32 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
         state.isAuthenticated = false;
-        state.token = null;
         state.role = null;
         state.user = null;
         state.userId = null;
       })
       .addCase(logout.fulfilled, () => initialState)
+      // Check auth state cases
       .addCase(checkAuthState.pending, (state) => {
-        state.loading = true;
+        if (!state.isAuthenticated) {
+          state.loading = true;
+        }
       })
       .addCase(checkAuthState.fulfilled, (state, action) => {
-        state.isAuthenticated = true;
-        state.loading = false;
-        state.token = action.payload.token;
-        state.role = action.payload.role;
-        state.user = action.payload.user;
-        state.userId = action.payload.userId;
-        state.error = null;
+        if (action.payload) {
+          state.isAuthenticated = true;
+          state.loading = false;
+          state.role = action.payload.role;
+          state.user = action.payload.user;
+          state.userId = action.payload.userId;
+          state.error = null;
+        } else {
+          state.loading = false;
+        }
       })
       // eslint-disable-next-line no-unused-vars
       .addCase(checkAuthState.rejected, (state) => {
+        localStorage.clear();
         return {
           ...initialState,
           loading: false

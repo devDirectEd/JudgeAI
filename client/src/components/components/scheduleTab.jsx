@@ -14,7 +14,7 @@ import {
 import { AddIcon, DownloadIcon } from '@chakra-ui/icons';
 import { Calendar} from "@/components/ui/calendar" // Ensure you have this library installed or replace with your preferred calendar component
 import { ScheduleModal } from './schdeuleform';
-import SpreadsheetLinkCard from '../components/importFromSpreadsheet';
+import { ScheduleSpreadsheetLinkCard } from '../components/importFromSpreadsheet';
 
 const ScheduleTab = () => {
   const [isModalOpen, setIsModalOpen] = useState(false); // Modal visibility state
@@ -181,9 +181,9 @@ const ScheduleTab = () => {
         </Button>
       </Stack>
 
-      <Flex bg="blackAlpha.100" paddingY="25px" paddingX="10%" borderRadius="10px" >
+      <Flex className='flex flex-col md:flex-row justify-center items-center gap-3' bg="blackAlpha.100" paddingY="25px" paddingX="5%" borderRadius="10px" >
         {/* Calendar View */}
-        <VStack bg="white" spacing={4} align="stretch" maxW={"50%"} border="1px" borderColor={"blackAlpha.200"} padding={'10px'} borderRadius={"md"} mr="10px" height='fit-content'>
+        <VStack bg="white" spacing={4} align="stretch" border="1px" borderColor={"blackAlpha.200"} padding={'10px'} borderRadius={"md"} mr="10px" height='fit-content'>
           <Heading size="lg" fontWeight='black' justify='center' mx="10px">Calendar View</Heading>
           <Box bg="white" p={4} borderRadius="md" shadow="sm" >
             <Calendar
@@ -236,7 +236,7 @@ const ScheduleTab = () => {
       <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)}>
         <ModalOverlay />
         <ModalContent>
-          <SpreadsheetLinkCard
+          <ScheduleSpreadsheetLinkCard
             onClose={() => setIsImportModalOpen(false)}
             templateUrl="https://docs.google.com/spreadsheets/d/.../edit?gid=0#gid=0"
             descriptionText="To import a list of startups, enter in a link to the spreadsheet with their details."
