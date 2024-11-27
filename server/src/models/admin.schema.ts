@@ -11,7 +11,10 @@ export class Admin {
   @Prop({ type: Types.ObjectId, ref: 'User' })
   userId: Types.ObjectId;
 
-  @Prop()
+  @Prop({
+    default: null,
+    required: false
+  })
   entityId: string
 
   @Prop({ required: true, unique: true })

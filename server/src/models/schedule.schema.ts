@@ -8,8 +8,8 @@ export class Schedule {
   @Prop({ type: Types.ObjectId, ref: 'Round', required: true })
   roundId: Types.ObjectId;
 
-  @Prop()
-  startupId: string;
+  @Prop({ type: Types.ObjectId, ref: 'Startup'})
+  startupId: Types.ObjectId;
 
   @Prop({ required: true })
   date: Date;
@@ -23,7 +23,7 @@ export class Schedule {
   @Prop()
   room: string;
 
-  @Prop({required: false})
+  @Prop({required: false, default:null})
   remoteRoom?: string;
 
   @Prop({

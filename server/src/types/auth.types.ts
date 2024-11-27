@@ -9,6 +9,7 @@ export enum UserRole {
   ADMIN = 'admin',
   JUDGE = 'judge'
 }
+export type UserRoles = 'admin' | 'judge';
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;

@@ -150,7 +150,6 @@ export class SpreadsheetService {
       .map((i) => rawData[`Judge ${i}`])
       .filter((judge) => judge);
     refinedData['judges'] = judges.length > 0 ? judges : null;
-    console.log(judges, judges.length)
     return refinedData;
   }
   parseScheduleDataFromSheet = async (sheetUrl:string) => {

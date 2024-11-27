@@ -1,4 +1,10 @@
-import { IsEmail, IsString,IsNotEmpty, IsOptional } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsMongoId,
+} from 'class-validator';
 
 export class CreateJudgeDto {
   @IsString({ message: 'Firstname should be a string' })
@@ -36,4 +42,10 @@ export class JudgeResponseDto {
   id: string;
   name: string;
   email: string;
+}
+
+export class getJudgeScheduleDto {
+  @IsNotEmpty({ message: 'Judge Id is required' })
+  @IsMongoId({ message: 'Invalid Judge ID' })
+  id: string;
 }

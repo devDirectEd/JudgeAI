@@ -30,7 +30,7 @@ export class AuthController {
   @Post('admin/login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+    return this.authService.login(loginDto, 'admin');
   }
   
 
@@ -38,7 +38,7 @@ export class AuthController {
   @Post('judge/login')
   @HttpCode(HttpStatus.CREATED)
   async loginJudge(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+    return this.authService.login(loginDto, 'judge');
   }
 
   @Public()

@@ -1,4 +1,11 @@
-import { IsDate, IsString, IsArray, IsMongoId, IsNotEmpty, IsOptional } from 'class-validator';
+import {
+  IsDate,
+  IsString,
+  IsArray,
+  IsMongoId,
+  IsNotEmpty,
+  IsOptional,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateScheduleDto {
@@ -80,4 +87,14 @@ export class QueryScheduleDto {
   @IsOptional()
   @IsString()
   sortOrder?: 'ascending' | 'descending';
+}
+
+export class DateRangeDto {
+  @IsNotEmpty({ message: 'A start date is required' })
+  @IsString()
+  start: string;
+
+  @IsNotEmpty({ message: 'An end date is required' })
+  @IsString()
+  end: string;
 }
