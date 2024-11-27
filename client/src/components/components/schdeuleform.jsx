@@ -1,193 +1,251 @@
-import{ useState } from "react";
+/* eslint-disable react/prop-types */
+import { useState } from 'react';
 import {
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Button,
-  FormControl,
-  FormLabel,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../ui/dialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import {
   Select,
-  Input,
-  Checkbox,
-  Text,
-} from "@chakra-ui/react";
-import PropTypes from "prop-types";
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { Box, Text } from '@chakra-ui/react';
 
-ScheduleModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
-  startups: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.string.isRequired,
-      name: PropTypes.string.isRequired,
-    })
-  ).isRequired,
-  judges: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.string.isRequired,
-      name: PropTypes.string.isRequired,
-    })
-  ).isRequired,
-  rooms: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.string.isRequired,
-      name: PropTypes.string.isRequired,
-    })
-  ).isRequired,
-  rounds: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.string.isRequired,
-      name: PropTypes.string.isRequired,
-    })
-  ).isRequired,
-  onSubmit: PropTypes.func.isRequired,
-};
-
-export function ScheduleModal({
-  isOpen,
-  onClose,
-  startups,
-  judges,
-  rooms,
-  rounds,
-  onSubmit,
-}) {
+export function ScheduleModal({ isOpen, onClose, startups, judges, rounds, onSubmit, isSubmitting }) {
   const [formData, setFormData] = useState({
-    startup: "",
+    startup: '',
     judges: [],
-    startDate: "",
-    endDate: "",
-    startTime: "",
-    endTime: "",
-    room: "",
-    remoteLink: "",
-    round: "",
+    startDate: '',
+    endDate: '',
+    startTime: '',
+    endTime: '',
+    room: '',
+    remoteRoom: '',
+    round: ''
   });
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+  const [selectedJudges, setSelectedJudges] = useState([]);
 
-    if (type === "checkbox") {
-      setFormData((prevData) => {
-        const updatedJudges = checked
-          ? [...prevData.judges, value]
-          : prevData.judges.filter((judge) => judge !== value);
-        return { ...prevData, [name]: updatedJudges };
-      });
-    } else {
-      setFormData((prevData) => ({
-        ...prevData,
-        [name]: value,
-      }));
+  const handleJudgeSelect = (value) => {
+    const judge = judges.find(j => j.id === value);
+    if (judge && !selectedJudges.find(j => j.id === judge.id)) {
+      setSelectedJudges([...selectedJudges, judge]);
+      // Store only the ID in the formData
+      setFormData(prev => ({ ...prev, judges: [...prev.judges, judge.id] }));
     }
+  };
+  
+
+  const removeJudge = (judgeId) => {
+    setSelectedJudges(selectedJudges.filter(j => j.id !== judgeId));
+    setFormData(prev => ({
+      ...prev,
+      judges: prev.judges.filter(id => id !== judgeId)
+    }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(formData);
-    onClose(); // Close modal after submission
+    if (formData.judges.length < 3) {
+      alert("Please select at least 3 judges");
+      return;
+    }
+  
+    // Ensure the form data matches the DTO format
+    const submitData = {
+      ...formData,
+      // Don't need any transformation for IDs as we're already storing raw IDs
+      roundId: formData.round,
+      startupId: formData.startup,
+      // Keep other fields as they are since they match the DTO
+    };
+  
+    onSubmit(submitData);
   };
 
-  
-
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>Schedule Event</ModalHeader>
-        <ModalBody>
-          <form onSubmit={handleSubmit}>
-            {/* Startup Name */}
-            <FormControl mb={4}>
-              <FormLabel>Select Startup Name</FormLabel>
-              <Select
-                name="startup"
-                value={formData.startup}
-                onChange={handleChange}
-              >
-                <option value="">Select a startup</option>
-                {startups.map((startup) => (
-                  <option key={startup.id} value={startup.id}>
-                    {startup.name}
-                  </option>
-                ))}
-              </Select>
-            </FormControl>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[600px] overflow-scroll max-h-[96%]">
+        <DialogHeader>
+          <DialogTitle>Schedule Form</DialogTitle>
+        </DialogHeader>
+        <form className="space-y-6">
+          <table className="w-full">
+            <tbody>
+              {/* Startup Selection */}
+              <tr>
+                <td className="py-4 w-1/3">
+                  <label className="block text-sm font-medium">1. Select startup name.</label>
+                </td>
+                <td className="py-4">
+                  <Select onValueChange={(value) => setFormData(prev => ({ ...prev, startup: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select startup..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {startups.map((startup) => (
+                        <SelectItem key={startup.id} value={startup.id}>
+                          {startup.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </td>
+              </tr>
 
-            {/* Judges */}
-            <FormControl mb={4}>
-              <FormLabel>Select Judges</FormLabel>
-              {judges.map((judge) => (
-                <Checkbox
-                  key={judge.id}
-                  name="judges"
-                  value={judge.id}
-                  isChecked={formData.judges.includes(judge.id)}
-                  onChange={handleChange}
-                >
-                  {judge.name}
-                </Checkbox>
-              ))}
-              <Text fontSize="sm" color="gray.500">
-                * Minimum of 3 judges
-              </Text>
-            </FormControl>
+              {/* Judges Selection */}
+              <tr>
+                <td className="py-4">
+                  <label className="block text-sm font-medium">2. Select Judges</label>
+                  <span className="text-sm text-gray-500">(Minimum is 3 judges)</span>
+                </td>
+                <td className="py-4">
+                  <Select onValueChange={handleJudgeSelect}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select judges..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {judges.map((judge) => (
+                        <SelectItem key={judge.id} value={judge.id}>
+                          {judge.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Box mt={2} className="space-y-2">
+                    {selectedJudges.map((judge) => (
+                      <Text 
+                        key={judge.id} 
+                        className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                      >
+                        {judge.name}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-red-500 hover:text-red-700"
+                          onClick={() => removeJudge(judge.id)}
+                        >
+                          ×
+                        </Button>
+                      </Text>
+                    ))}
+                  </Box>
+                </td>
+              </tr>
 
-            {/* Room */}
-            <FormControl mb={4}>
-              <FormLabel>Select Room</FormLabel>
-              <Select
-                name="room"
-                value={formData.room}
-                onChange={handleChange}
-              >
-                <option value="">Select a room</option>
-                {rooms.map((room) => (
-                  <option key={room.id} value={room.id}>
-                    {room.name}
-                  </option>
-                ))}
-                <option value="Remote">Remote Room</option>
-              </Select>
-              {formData.room === "Remote" && (
-                <Input
-                  mt={2}
-                  name="remoteLink"
-                  value={formData.remoteLink}
-                  onChange={handleChange}
-                  placeholder="Enter remote link"
-                />
-              )}
-            </FormControl>
+              {/* Date Selection */}
+              <tr>
+                <td className="py-4">
+                  <label className="block text-sm font-medium">3. Date</label>
+                </td>
+                <td className="py-4">
+                  <Input 
+                    type="date" 
+                    value={formData.startDate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
+                  />
+                </td>
+              </tr>
 
-            {/* Round */}
-            <FormControl mb={4}>
-              <FormLabel>Select Round</FormLabel>
-              <Select
-                name="round"
-                value={formData.round}
-                onChange={handleChange}
-              >
-                <option value="">Select a round</option>
-                {rounds.map((round) => (
-                  <option key={round.id} value={round.id}>
-                    {round.name}
-                  </option>
-                ))}
-              </Select>
-            </FormControl>
-          </form>
-        </ModalBody>
-        <ModalFooter>
-          <Button colorScheme="blue" mr={3} onClick={handleSubmit}>
-            Submit
+              {/* Time Selection */}
+              <tr>
+                <td className="py-4">
+                  <label className="block text-sm font-medium">4. Time</label>
+                </td>
+                <td className="py-4">
+                  <div className="flex gap-4">
+                    <div className="flex items-center gap-2">
+                      <span>Start:</span>
+                      <Input 
+                        type="time" 
+                        value={formData.startTime}
+                        onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>End:</span>
+                      <Input 
+                        type="time" 
+                        value={formData.endTime}
+                        onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </td>
+              </tr>
+
+              {/* Room Selection */}
+              <tr>
+                <td className="py-4">
+                  <label className="block text-sm font-medium">5. Add room (required).</label>
+                  <span className="text-sm text-gray-500">Paste link if room is remote</span>
+                </td>
+                <td className="py-4 space-y-2">
+                  <Input
+                    type="text"
+                    placeholder="Enter room..."
+                    value={formData.room}
+                    onChange={(e) => setFormData(prev => ({ ...prev, room: e.target.value }))}
+                  />
+                  {formData.room.toLowerCase() === 'remote' && (
+                    <Input
+                      type="text"
+                      placeholder="Enter remote room link..."
+                      value={formData.remoteRoom}
+                      onChange={(e) => setFormData(prev => ({ ...prev, remoteRoom: e.target.value }))}
+                    />
+                  )}
+                </td>
+              </tr>
+
+              {/* Round Selection */}
+              <tr>
+                <td className="py-4">
+                  <label className="block text-sm font-medium">6. Select round.</label>
+                  <span className="text-sm text-gray-500">This will determine what the live score form looks like.</span>
+                </td>
+                <td className="py-4">
+                  <Select onValueChange={(value) => setFormData(prev => ({ ...prev, round: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select round..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {rounds.map((round) => (
+                        <SelectItem key={round.id} value={round.id}>
+                          {round.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </form>
+        <DialogFooter>
+          <Button 
+            variant="outline" 
+            onClick={onClose}
+            disabled={isSubmitting}
+          >
+            Cancel
           </Button>
-          <Button onClick={onClose}>Cancel</Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+          <Button 
+            className="bg-[#18181B] text-white hover:bg-[#27272A] disabled:bg-gray-400"
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Creating..." : "Schedule Session"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

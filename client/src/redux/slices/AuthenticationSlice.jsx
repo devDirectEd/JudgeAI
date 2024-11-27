@@ -81,7 +81,8 @@ export const checkAuthState = createAsyncThunk(
       return {
         role,
         userId,
-        isAuthenticated: true,
+        user: userData || { id: userId },
+        isAuthenticated: true
       };
     } catch (error) {
       console.error('Check auth state error:', error);

@@ -10,163 +10,174 @@ import {
   ModalOverlay,
   ModalContent,
   Flex,
+  useToast,
+  Spinner,
 } from '@chakra-ui/react';
 import { AddIcon, DownloadIcon } from '@chakra-ui/icons';
-import { Calendar} from "@/components/ui/calendar" // Ensure you have this library installed or replace with your preferred calendar component
+import { Calendar } from "@/components/ui/calendar";
 import { ScheduleModal } from './schdeuleform';
 import { ScheduleSpreadsheetLinkCard } from '../components/importFromSpreadsheet';
+import axiosInstance from '@/redux/axiosInstance';
+import { format } from 'date-fns';
 
 const ScheduleTab = () => {
-  const [isModalOpen, setIsModalOpen] = useState(false); // Modal visibility state
-  const [scheduleData, setScheduleData] = useState([]); // Schedules
+  const toast = useToast();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [scheduleData, setScheduleData] = useState([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [newSchedule, setNewSchedule] = useState({
-    selectedDate: new Date(),
-    time: '',
-    teamName: '',
-    judge: '',
-    room: '',
-  });
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [startups, setStartups] = useState([]);
+  const [judges, setJudges] = useState([]);
+  const [rounds, setRounds] = useState([]);
 
-  // Dummy data for schedules
   useEffect(() => {
-    // Simulated API call - Replace this with actual fetch when backend is ready
-    /*
-    const fetchSchedules = async () => {
+    const fetchReferenceData = async () => {
       try {
-        const response = await fetch('/api/schedules'); // Replace with your API endpoint
-        const data = await response.json();
-        setScheduleData(data);
+        const [startupsRes, judgesRes, roundsRes] = await Promise.all([
+          axiosInstance.get('/startups'),
+          axiosInstance.get('/judges'),
+          axiosInstance.get('/rounds')
+        ]);
+
+        setStartups(startupsRes.data);
+        setJudges(judgesRes.data);
+        setRounds(roundsRes.data);
       } catch (error) {
-        console.error('Error fetching schedule data:', error);
-      }
-    };
-    fetchSchedules();
-    */
-    // Dummy schedule data
-    const dummyData = [
-        {
-          startup: "Tech Innovators",
-          judges: ["Judge Emily", "Judge Steve"],
-          startDate: "2024-11-25",
-          endDate: "2024-11-25",
-          startTime: "10:00 AM",
-          endTime: "11:00 AM",
-          room: "Room 101",
-          remoteLink: "https://example.com/tech-innovators",
-          round: "Preliminary",
-        },
-        {
-          startup: "GreenTech Solutions",
-          judges: ["Judge Anna", "Judge David"],
-          startDate: "2024-11-26",
-          endDate: "2024-11-26",
-          startTime: "1:00 PM",
-          endTime: "2:00 PM",
-          room: "Room 202",
-          remoteLink: "https://example.com/greentech",
-          round: "Semifinal",
-        },
-        {
-          startup: "AI Pioneers",
-          judges: ["Judge Sarah", "Judge Michael"],
-          startDate: "2024-11-27",
-          endDate: "2024-11-27",
-          startTime: "9:00 AM",
-          endTime: "10:00 AM",
-          room: "Room 303",
-          remoteLink: "https://example.com/ai-pioneers",
-          round: "Final",
-        },
-        {
-          startup: "Blockchain Builders",
-          judges: ["Judge Chris", "Judge Pat"],
-          startDate: "2024-11-28",
-          endDate: "2024-11-28",
-          startTime: "3:00 PM",
-          endTime: "4:00 PM",
-          room: "Room 404",
-          remoteLink: "https://example.com/blockchain-builders",
-          round: "Final",
-        },
-      ];
-      
-    setScheduleData(dummyData);
-  }, []);
-
-  const dummyStartups = [
-    { id: "startup1", name: "Tech Innovators Inc." },
-    { id: "startup2", name: "Green Future Solutions" },
-    { id: "startup3", name: "NextGen AI Labs" },
-    { id: "startup4", name: "Quantum Leap Ventures" },
-  ];
-  
-  const dummyJudges = [
-    { id: "judge1", name: "Alice Johnson" },
-    { id: "judge2", name: "Dr. Robert Smith" },
-    { id: "judge3", name: "Emily Davis" },
-    { id: "judge4", name: "Michael Brown" },
-    { id: "judge5", name: "Sophia Lee" },
-  ];
-  
-  const dummyRooms = [
-    { id: "room1", name: "Room A" },
-    { id: "room2", name: "Room B" },
-    { id: "room3", name: "Room C" },
-    { id: "room4", name: "Room D" },
-  ];
-  
-  const dummyRounds = [
-    { id: "round1", name: "Preliminary Round" },
-    { id: "round2", name: "Quarter-Finals" },
-    { id: "round3", name: "Semi-Finals" },
-    { id: "round4", name: "Final Round" },
-  ];
-  
-
-  const openStartupModal = () => {
-    setIsModalOpen(true);
-  };
-
-  const openImportModal = () => {
-    setIsImportModalOpen(true);
-  };
-
-  // Add new schedule (can replace with a POST request)
-  const addSchedule = (newData) => {
-    /*
-    const submitSchedule = async () => {
-      try {
-        const response = await fetch('/api/schedules', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(newData),
+        console.log(error)
+        toast({
+          title: "Error",
+          description: "Failed to load reference data. Please try again.",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
         });
-        const savedSchedule = await response.json();
-        setScheduleData((prev) => [...prev, savedSchedule]);
-      } catch (error) {
-        console.error('Error submitting schedule:', error);
       }
     };
-    submitSchedule();
-    */
+
+    fetchReferenceData();
+  }, [toast]);
+
+  const fetchSchedules = async (date) => {
+    if (!date) return;
     
-    setScheduleData((prev) => [...prev, newData]); // Dummy addition
-      
+    setIsLoading(true);
+    try {
+      const formattedDate = format(date, 'yyyy-MM-dd');
+      const response = await axiosInstance.get(`/schedules/range?start=${formattedDate}&end=${formattedDate}`);
+      setScheduleData(response.data);
+    } catch (error) {
+      console.log(error);
+      toast({
+        title: "Error",
+        description: "Failed to load schedules. Please try again.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      setScheduleData([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const handleDateSelect = async (date) => {
+    if (date) {
+      setSelectedDate(date);
+      await fetchSchedules(date);
+    }
+  };
+
+  // Fetch initial data for current date
+  useEffect(() => {
+    fetchSchedules(selectedDate);
+  }, []); // Only run once on mount
+
+  // Fetch reference data
+  useEffect(() => {
+    const fetchReferenceData = async () => {
+      try {
+        const [startupsRes, judgesRes, roundsRes] = await Promise.all([
+          axiosInstance.get('/startups'),
+          axiosInstance.get('/judges'),
+          axiosInstance.get('/rounds')
+        ]);
+
+        setStartups(startupsRes.data);
+        setJudges(judgesRes.data);
+        setRounds(roundsRes.data);
+      } catch (error) {
+        console.log(error);
+        toast({
+          title: "Error",
+          description: "Failed to load reference data. Please try again.",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+      }
+    };
+
+    fetchReferenceData();
+  }, [toast]);
+
+  const addSchedule = async (newData) => {
+    setIsSubmitting(true);
+    try {
+      const scheduleData = {
+        roundId: newData.round,
+        startupId: newData.startup,
+        date: new Date(newData.startDate),
+        startTime: newData.startTime,
+        endTime: newData.endTime,
+        room: newData.room,
+        judges: newData.judges,
+        ...(newData.remoteRoom && { remoteRoom: newData.remoteRoom })
+      };
+  
+      await axiosInstance.post('/schedules', scheduleData);
+      
+      toast({
+        title: "Success",
+        description: "Schedule created successfully",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+      
+      fetchSchedules(selectedDate);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to create schedule. Please try again.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const formatJudgeNames = (judges) => {
+    if (!Array.isArray(judges)) return '';
+    return judges
+      .filter(judge => judge && judge.firstname && judge.lastname)
+      .map(judge => `${judge.firstname} ${judge.lastname}`)
+      .join(", ");
+  };
+
 
   return (
     <Box>
-      {/* Search and Buttons */}
       <Stack direction="row" spacing="4" justify="end" my="10px">
         <Button
           leftIcon={<AddIcon />}
           color="white"
           bg="black"
           mx="2"
-          onClick={() => openStartupModal()}
+          onClick={() => setIsModalOpen(true)}
         >
           Add Schedule
         </Button>
@@ -175,70 +186,84 @@ const ScheduleTab = () => {
           color="white"
           bg="black"
           mx="2"
-          onClick={openImportModal}
+          onClick={() => setIsImportModalOpen(true)}
         >
           Import
         </Button>
       </Stack>
 
-      <Flex className='flex flex-col md:flex-row justify-center items-center gap-3' bg="blackAlpha.100" paddingY="25px" paddingX="5%" borderRadius="10px" >
-        {/* Calendar View */}
-        <VStack bg="white" spacing={4} align="stretch" border="1px" borderColor={"blackAlpha.200"} padding={'10px'} borderRadius={"md"} mr="10px" height='fit-content'>
-          <Heading size="lg" fontWeight='black' justify='center' mx="10px">Calendar View</Heading>
-          <Box bg="white" p={4} borderRadius="md" shadow="sm" >
+      <Flex className='flex flex-col md:flex-row justify-center items-center gap-3' bg="blackAlpha.100" paddingY="25px" paddingX="5%" borderRadius="10px">
+        <VStack bg="white" spacing={4} align="stretch" border="1px" justifySelf="flex-start" alignSelf="flex-start" borderColor="blackAlpha.200" padding="10px" borderRadius="md" mr="10px" height="fit-content">
+          <Heading size="lg" fontWeight="black" justify="center" mx="10px">
+            Pick a date to view its schedule
+          </Heading>
+          <Box bg="white" p={4} borderRadius="md" shadow="sm">
             <Calendar
-                mode="single"
-                selected={newSchedule.selectedDate}
-                onSelect={(date) => setNewSchedule((prev) => ({ ...prev, selectedDate: date }))}
-                className="rounded-md border w-full bg-[#464646] text-white"
+              mode="single"
+              selected={selectedDate}
+              onSelect={handleDateSelect}
+              className="rounded-md border w-full bg-[#464646] text-white"
+              initialFocus
             />
             <Text mt={2} fontSize="sm">
-              Selected Date: {newSchedule.selectedDate.toDateString()}
+              Selected Date: {selectedDate ? selectedDate.toDateString() : 'No date selected'}
             </Text>
           </Box>
         </VStack>
 
-        {/* Schedule Data */}
-        <VStack bg="white"  spacing={4} align="stretch" minW="70%" border="1px" borderColor={"blackAlpha.200"} padding={'10px'} borderRadius={"md"} ml="10px">
+        <VStack bg="white" spacing={4} align="stretch" minW="70%" border="1px" borderColor="blackAlpha.200" padding="10px" borderRadius="md" ml="10px">
           <Heading size="md">Startup Schedule</Heading>
-            <Box bg="white" p={4} borderRadius="md" shadow="sm">
-                {scheduleData.length === 0 ? (
-                    <Text>No schedules added yet.</Text>
-                ) : (
-                    scheduleData.map((slot, index) => (
-                    <Box key={index} p={3} borderWidth="1px" borderRadius="md" mb={2} padding="20px" bg="blackAlpha.100">
-                        <Text><strong>Round:</strong> {slot.round}</Text>
-                        <Text><strong>Startup:</strong> {slot.startup}</Text>
-                        <Text><strong>Judges:</strong> {slot.judges.join(", ")}</Text>
-                        <Text><strong>Time:</strong> {slot.startTime} - {slot.endTime}</Text>
-                        <Text><strong>Room:</strong> {slot.room}</Text>
-                        <Text><strong>Remote Link:</strong> <a href={slot.remoteLink} target="_blank" rel="noopener noreferrer">{slot.remoteLink}</a></Text>
-                        
-                    </Box>
-                    ))
-                )}
-            </Box>
-
+          <Box bg="white" p={4} borderRadius="md" shadow="sm">
+            {isLoading ? (
+              <div className="flex justify-center items-center h-64">
+                <Spinner size="xl" color="blue.500" />
+              </div>
+            ) : scheduleData.length === 0 ? (
+              <Text>No schedules for selected date.</Text>
+            ) : (
+              scheduleData.map((slot) => (
+                <Box key={slot._id} p={3} borderWidth="1px" borderRadius="md" mb={2} padding="20px" bg="blackAlpha.100">
+                  <Text><strong>Round:</strong> {slot.roundId?.name || 'N/A'}</Text>
+                  <Text><strong>Startup:</strong> {slot.startupId?.name || 'N/A'}</Text>
+                  <Text><strong>Judges:</strong> {formatJudgeNames(slot.judges)}</Text>
+                  <Text><strong>Time:</strong> {slot.startTime} - {slot.endTime}</Text>
+                  <Text><strong>Room:</strong> {slot.room || 'N/A'}</Text>
+                  {slot.remoteRoom && (
+                    <Text><strong>Remote Link:</strong> <a href={slot.remoteRoom} target="_blank" rel="noopener noreferrer">{slot.remoteRoom}</a></Text>
+                  )}
+                </Box>
+              ))
+            )}
+          </Box>
         </VStack>
       </Flex>
 
-      {/* Add/Edit Modal */}
-        <ScheduleModal
-            isOpen={isModalOpen}
-            onClose={() => setIsModalOpen(false)}
-            startups={dummyStartups}
-            judges={dummyJudges}
-            rooms={dummyRooms}
-            rounds={dummyRounds}
-            onSubmit={addSchedule}
-        />
+      <ScheduleModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        startups={startups.map(s => ({
+          id: s._id,
+          name: `${s.name} (${s.startupID || 'No ID'})`
+        }))}
+        judges={judges.map(j => ({
+          id: j._id,
+          name: `${j.firstname} ${j.lastname}`
+        }))}
+        rounds={rounds.map(r => ({
+          id: r._id,
+          name: r.name
+        }))}
+        onSubmit={addSchedule}
+        isSubmitting={isSubmitting}
+      />
 
       <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)}>
         <ModalOverlay />
         <ModalContent>
           <ScheduleSpreadsheetLinkCard
             onClose={() => setIsImportModalOpen(false)}
-            templateUrl="https://docs.google.com/spreadsheets/d/.../edit?gid=0#gid=0"
+            onSuccess={() => fetchSchedules(selectedDate)}
+            templateUrl="https://docs.google.com/spreadsheets/d/19AFl2jPgCHy3y32V9He9lj5Li5rm0vj49pcu3huhdZE/edit?usp=sharing"
             descriptionText="To import a list of startups, enter in a link to the spreadsheet with their details."
           />
         </ModalContent>
