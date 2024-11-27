@@ -51,8 +51,12 @@ export class ScheduleService {
         .select('roundId startupId date startTime endTime room')
         .populate('startupId', 'name')
         .populate('roundId', 'name')
+        .populate({
+          path: 'judges',
+          select: 'firstname lastname email',
+          model: 'Judge',
+        })
         .sort({ date: 1 });
-
       return schedules;
     } catch (error) {
       throw error;

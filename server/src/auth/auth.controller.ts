@@ -12,7 +12,6 @@ import { LoginDto, RefreshTokenDto } from './auth.dto';
 import { Public } from 'src/common/decorators/public.decorators';
 import { JwtAuthGuard } from 'src/common/guards/auth.guard';
 import { Request } from 'express';
-import { CreateJudgeDto } from 'src/modules/judge/judge.dto';
 import { RegisterAdminDto } from 'src/modules/admin/admin.dto';
 
 @Controller('auth')

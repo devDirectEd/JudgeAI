@@ -8,10 +8,18 @@ export class Schedule {
   @Prop({ type: Types.ObjectId, ref: 'Round', required: true })
   roundId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Startup'})
+  @Prop({ type: Types.ObjectId, ref: 'Startup' })
   startupId: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({
+    required: true,
+    validate: {
+      validator: function (v: Date) {
+        return v >= new Date();
+      },
+      message: 'Date cannot be in the past',
+    },
+  })
   date: Date;
 
   @Prop()
@@ -23,12 +31,12 @@ export class Schedule {
   @Prop()
   room: string;
 
-  @Prop({required: false, default:null})
+  @Prop({ required: false, default: null })
   remoteRoom?: string;
 
   @Prop({
     type: [{ type: Types.ObjectId, ref: 'Judge' }],
-    
+
     validate: {
       validator: function (v: any[]) {
         return v.length >= 3;

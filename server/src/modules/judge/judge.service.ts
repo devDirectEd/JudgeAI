@@ -121,19 +121,35 @@ export class JudgeService {
 
   async getJudgeSchedules(judgeId: string, start: Date, end: Date) {
     if (!Types.ObjectId.isValid(judgeId)) {
-      throw new BadRequestException('Invalid judge ID format');
+        throw new BadRequestException('Invalid judge ID format');
     }
     return this.scheduleModel
-      .find({
-        judges: new Types.ObjectId(judgeId),
-        date: {
-          $gte: start,
-          $lte: end,
-        },
-      })
-      .select('roundId startupId date startTime endTime room')
-      .populate('startupId', 'name');
-  }
+        .find({
+            judges: judgeId,
+            date: {
+                $gte: start,
+                $lte: end,
+            },
+        })
+        .select('roundId startupId date startTime endTime room judges')
+        .populate([
+            {
+                path: 'startupId',
+                select: 'name'
+            },
+            {
+                path: 'roundId',
+                select: 'name'
+            },
+            {
+                path: 'judges',
+                select: 'firstname lastname email',
+                model: 'Judge'
+            }
+        ])
+        .lean()  
+        .exec();  
+}
 
   async bulkRegisterJudges(judges: CreateJudgeDto[]) {
     const existingJudges = await this.judgeModel.find({
