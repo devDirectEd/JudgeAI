@@ -18,7 +18,7 @@ import { NotificationsService } from 'src/modules/notifications/notifications.se
     MongooseModule.forFeature([{ name: Judge.name, schema: JudgeSchema }]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, AuthInterceptor, NotificationsService],
+  providers: [AuthService, JwtStrategy, AuthInterceptor],
   exports: [AuthService, AuthInterceptor],
 })
 export class AuthModule {}

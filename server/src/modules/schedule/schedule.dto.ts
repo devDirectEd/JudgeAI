@@ -34,6 +34,36 @@ export class CreateScheduleDto {
   @IsMongoId({ each: true })
   judges: string[];
 }
+export class CreateScheduleViaUploadDto {
+  @IsNotEmpty()
+  roundId: string;
+
+  @IsNotEmpty()
+  startupId: string;
+
+  @IsDate()
+  @Type(() => Date)
+  @IsNotEmpty()
+  date: Date;
+
+  @IsString()
+  @IsNotEmpty()
+  startTime: string;
+
+  @IsString()
+  @IsNotEmpty()
+  endTime: string;
+
+  @IsString()
+  room: string;
+
+  @IsOptional()
+  @IsString()
+  remoteRoom?: string;
+
+  @IsArray()
+  judges: string[];
+}
 
 export class AssignJudgesDto {
   @IsArray()

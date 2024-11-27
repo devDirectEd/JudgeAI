@@ -28,6 +28,7 @@ export class Schedule {
 
   @Prop({
     type: [{ type: Types.ObjectId, ref: 'Judge' }],
+    
     validate: {
       validator: function (v: any[]) {
         return v.length >= 3;

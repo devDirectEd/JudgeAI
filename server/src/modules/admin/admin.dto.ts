@@ -1,13 +1,9 @@
 import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class RegisterAdminDto {
-  @IsString({ message: 'Firstname should be a string' })
-  @IsNotEmpty({ message: 'Firstname is required' })
-  firstname: string;
-
-  @IsString({ message: 'Lastname should be a string' })
-  @IsNotEmpty({ message: 'Lastname is required' })
-  lastname: string;
+  @IsString({ message: 'Fullname should be a string' })
+  @IsNotEmpty({ message: 'Fullname is required' })
+  fullname: string;
 
   @IsEmail({}, { message: 'Invalid email' })
   @IsNotEmpty({ message: 'Email is required' })
@@ -30,8 +26,7 @@ export class LoginAdminDto {
 
 export class AdminResponseDto {
   id: string;
-  firstname: string;
-  lastname: string;
+  fullname: string;
   email: string;
   role: string;
 }

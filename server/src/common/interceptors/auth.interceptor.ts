@@ -70,7 +70,7 @@ export class AuthInterceptor implements NestInterceptor {
         const fiveMinutes = 5 * 60 * 1000;
         if (Date.now() + fiveMinutes >= expirationTime) {
           this.logger.warn('Token is about to expire');
-          // You could add logic here to refresh the token
+          // TODO: Implement token refresh
         }
       } catch (error) {
         if (error.name === 'TokenExpiredError') {
@@ -83,7 +83,6 @@ export class AuthInterceptor implements NestInterceptor {
 
       return next.handle().pipe(
         catchError((error) => {
-          // Log any authentication-related errors
           this.logger.error(
             `Authentication error: ${error.message}`,
             error.stack,
@@ -92,7 +91,6 @@ export class AuthInterceptor implements NestInterceptor {
         }),
       );
     } catch (error) {
-      // Handle any synchronous errors in the try block
       this.logger.error(`Authentication error: ${error.message}`, error.stack);
       throw error;
     }
