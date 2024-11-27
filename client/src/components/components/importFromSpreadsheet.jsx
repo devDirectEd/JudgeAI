@@ -403,6 +403,7 @@ export const RoundsSpreadsheetLinkCard = ({
   onClose,
   templateUrl,
   descriptionText,
+  onSuccess
 }) => {
   const toast = useToast();
   const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
@@ -437,6 +438,10 @@ export const RoundsSpreadsheetLinkCard = ({
         duration: 3000,
         isClosable: true,
       });
+
+      if (onSuccess) {
+        await onSuccess();  // Call the callback function
+      }
       
       onClose();
     } catch (error) {
@@ -588,6 +593,7 @@ export const ScheduleSpreadsheetLinkCard = ({
   onClose,
   templateUrl,
   descriptionText,
+  onSuccess
 }) => {
   const toast = useToast();
   const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
@@ -611,7 +617,7 @@ export const ScheduleSpreadsheetLinkCard = ({
     setError(null);
     
     try {
-      await axiosInstance.post("/startups/import", {
+      await axiosInstance.post("/schedules/import", {
         spreadsheetUrl: spreadsheetUrl
       });
       
@@ -622,6 +628,10 @@ export const ScheduleSpreadsheetLinkCard = ({
         duration: 3000,
         isClosable: true,
       });
+
+      if (onSuccess) {
+        await onSuccess();  // Call the callback function
+      }
       
       onClose();
     } catch (error) {
@@ -785,10 +795,12 @@ JudgesSpreadsheetLinkCard.propTypes = {
 RoundsSpreadsheetLinkCard.propTypes = {
   onClose: PropTypes.func.isRequired,
   templateUrl: PropTypes.string.isRequired,
+  onSuccess: PropTypes.func.isRequired,
   descriptionText: PropTypes.string.isRequired,
 };
 ScheduleSpreadsheetLinkCard.propTypes = {
   onClose: PropTypes.func.isRequired,
   templateUrl: PropTypes.string.isRequired,
+  onSuccess: PropTypes.func.isRequired,
   descriptionText: PropTypes.string.isRequired,
 };

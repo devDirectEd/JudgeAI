@@ -195,8 +195,7 @@ export default function Dashboard() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const response = await axiosInstance.get(`/api/v1/judges/${userId}/schedules`);
-
+        const response = await axiosInstance.get(`/judges/schedules?self=true&start=2024-11-30&end=2024-12-31`);
         if (response.data) {
           const transformedData = transformScheduleData(response.data);
           setScheduleData(transformedData);
