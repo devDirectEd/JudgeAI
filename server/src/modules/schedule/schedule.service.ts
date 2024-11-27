@@ -57,7 +57,6 @@ export class ScheduleService {
           model: 'Judge',
         })
         .sort({ date: 1 });
-
       return schedules;
     } catch (error) {
       throw error;
