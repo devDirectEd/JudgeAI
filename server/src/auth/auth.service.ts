@@ -7,7 +7,12 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
-import { UserRole, JwtPayload, LoginResponse } from '../types/auth.types';
+import {
+  UserRole,
+  JwtPayload,
+  LoginResponse,
+  UserRoles,
+} from '../types/auth.types';
 import { LoginDto } from './auth.dto';
 import { User, UserDocument } from 'src/models/user.schema';
 import { Admin } from 'src/models/admin.schema';
@@ -66,8 +71,7 @@ export class AuthService {
     }
   }
 
-
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto, role: UserRoles) {
     const user = await this.userModel.findOne({ email: loginDto.email });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -83,7 +87,7 @@ export class AuthService {
 
     // Get the role-specific entity (Admin or Judge)
     const entityModel =
-      user.role === UserRole.ADMIN ? this.adminModel : this.judgeModel;
+      role === UserRole.ADMIN ? this.adminModel : this.judgeModel;
     const entity = await (entityModel as Model<Admin | Judge>).findById(
       user.roleId,
     );

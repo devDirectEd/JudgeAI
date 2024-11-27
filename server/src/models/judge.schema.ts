@@ -1,18 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-@Schema({ timestamps: true })
-class Feedback {
-  @Prop({ type: Types.ObjectId, ref: 'Schedule' })
-  scheduleId: Types.ObjectId;
-
-  @Prop({ type: Types.ObjectId, ref: 'Startup' })
-  startupId: Types.ObjectId;
-
-  @Prop({ type: Map, of: Number })
-  score: Map<string, number>;
-}
-
 export type JudgeDocument = Judge & Document;
 
 @Schema({ timestamps: true })
@@ -23,7 +11,7 @@ export class Judge {
   @Prop({ type: Types.ObjectId, ref: 'User' })
   userId: Types.ObjectId;
 
-  @Prop({ required:false})
+  @Prop({ required:false, default:null})
   entityId?: string
 
   @Prop()

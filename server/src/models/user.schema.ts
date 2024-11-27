@@ -14,7 +14,7 @@ export class User {
   @Prop({ required: true })
   password: string;
 
-  @Prop()
+  @Prop({default:null, required:false})
   refreshToken?: string;
 
   @Prop({ default: 'user' })

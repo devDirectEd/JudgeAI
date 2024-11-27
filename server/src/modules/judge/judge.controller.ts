@@ -9,6 +9,8 @@ import {
   HttpCode,
   Put,
   Delete,
+  Request,
+  BadRequestException,
 } from '@nestjs/common';
 import { JudgeService } from './judge.service';
 import { SpreadsheetService } from 'src/services/spreadsheet/spreadsheet.service';
@@ -16,6 +18,7 @@ import { SpreadsheetUrlDto } from 'src/common/dto';
 import { Auth } from 'src/common/decorators/role.decorators';
 import { Permission } from 'src/types/permission.types';
 import { CreateJudgeDto } from './judge.dto';
+import { Request as ExpressRequest } from 'express';
 
 @Controller('judges')
 export class JudgeController {
@@ -23,6 +26,36 @@ export class JudgeController {
     private readonly judgeService: JudgeService,
     private readonly spreadsheetService: SpreadsheetService,
   ) {}
+
+  @Get('schedules')
+  @Auth(['judge'], [Permission.VIEW_SCHEDULE])
+  async getJudgeSchedules(
+    @Request() req: ExpressRequest,
+    @Query('start') start: string,
+    @Query('end') end: string,
+    @Query('self') self?: boolean,
+    @Query('id') id?: string,
+  ) {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      throw new BadRequestException('Invalid start and/or end format');
+    }
+
+    if (self) {
+      const judgeId = req?.user['roleId'];
+      return this.judgeService.getJudgeSchedules(judgeId, startDate, endDate);
+    }
+
+    if (id) {
+      return this.judgeService.getJudgeSchedules(id, startDate, endDate);
+    }
+
+    throw new BadRequestException(
+      'Either self or id query parameter is required',
+    );
+  }
 
   @Get()
   @Auth(['admin'], [Permission.MANAGE_JUDGES])
@@ -57,11 +90,6 @@ export class JudgeController {
   @Get(':id')
   async getJudgeById(@Param('id') id: string) {
     return this.judgeService.getJudgeById(id);
-  }
-
-  @Get(':id/schedules')
-  async getJudgeSchedules(@Param('id') id: string) {
-    return this.judgeService.getJudgeSchedules(id);
   }
 
   @Post('import')

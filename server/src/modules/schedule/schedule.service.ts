@@ -36,16 +36,28 @@ export class ScheduleService {
     return this.scheduleModel.find().sort({ [sortBy]: sortOrder });
   }
 
-  async getSchedulesByDate(eventDate: Date) {
+  async getSchedulesByDate(start: Date, end: Date) {
     try {
-      return this.scheduleModel.find({
-        date: eventDate,
-      });
+      if (start > end) {
+        throw new BadRequestException('Start date must be before end date');
+      }
+      const schedules = await this.scheduleModel
+        .find({
+          date: {
+            $gte: start,
+            $lte: end,
+          },
+        })
+        .select('roundId startupId date startTime endTime room')
+        .populate('startupId', 'name')
+        .populate('roundId', 'name')
+        .sort({ date: 1 });
+
+      return schedules;
     } catch (error) {
       throw error;
     }
   }
-
   async getScheduleById(id: string): Promise<Schedule> {
     const schedule = await this.scheduleModel.findById(id);
     if (!schedule) {
@@ -90,33 +102,79 @@ export class ScheduleService {
   async bulkAddSchedules(
     schedules: CreateScheduleViaUploadDto[],
   ): Promise<Schedule[]> {
-    //validate schedules
-    const invalidSchedules = await Promise.all(
+    // Validate and collect entity data in parallel
+    const validationResults = await Promise.all(
       schedules.map(async (schedule) => {
         const { roundId, startupId, judges } = schedule;
-        //check if round exists
+
+        // Check if round exists
         const round = await this.roundModel.findOne({
           $or: [{ name: roundId }, { entityId: roundId }],
         });
 
+        // Find all valid judges
         const validJudges = await this.judgeModel.find({
           entityId: {
             $in: judges,
           },
         });
 
+        // Check if startup exists
         const startup = await this.startupModel.findOne({
           startupID: startupId,
         });
-        return !round || judges.length !== validJudges.length || !startup;
+
+        // If any required entity is missing, return the invalid schedule
+        if (!round || judges.length !== validJudges.length || !startup) {
+          return {
+            isValid: false,
+            schedule,
+            entities: null,
+          };
+        }
+
+        // Return both validation status and entity data
+        return {
+          isValid: true,
+          schedule,
+          entities: {
+            round,
+            validJudges,
+            startup,
+          },
+        };
       }),
     );
-    if (invalidSchedules && invalidSchedules.length > 0) {
+
+    // Find any invalid schedules
+    const invalidSchedules = validationResults
+      .filter((result) => !result.isValid)
+      .map((result) => result.schedule);
+
+    if (invalidSchedules.length > 0) {
       throw new BadRequestException(
-        `${invalidSchedules.length || 'One or more'} schedules have invalid data`,
+        `${invalidSchedules.length} schedule${
+          invalidSchedules.length === 1 ? ' has' : 's have'
+        } invalid data`,
       );
     }
-    const insertedSchedules = await this.scheduleModel.insertMany(schedules);
+
+    // Transform schedules with MongoDB _ids
+    const transformedSchedules = validationResults.map((result) => {
+      if (!result.isValid || !result.entities) return result.schedule; // This should never happen due to previous validation
+
+      const { round, validJudges, startup } = result.entities;
+
+      return {
+        ...result.schedule,
+        roundId: round._id,
+        startupId: startup._id,
+        judges: validJudges.map((judge) => judge._id),
+      };
+    });
+
+    const insertedSchedules =
+      await this.scheduleModel.insertMany(transformedSchedules);
     return insertedSchedules.map((schedule) => schedule.toObject() as Schedule);
   }
 }

@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, SortOrder } from 'mongoose';
+import { Model, SortOrder, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { CreateJudgeDto } from './judge.dto';
 import { Judge, JudgeDocument } from 'src/models/judge.schema';
@@ -71,7 +71,7 @@ export class JudgeService {
       });
 
       return {
-        '_id': savedJudge._id.toString(),
+        _id: savedJudge._id.toString(),
         firstname: savedJudge.firstname,
         lastname: savedJudge.lastname,
         email: savedJudge.email,
@@ -119,12 +119,22 @@ export class JudgeService {
     return this.judgeModel.findById(id);
   }
 
-  async getJudgeSchedules(judgeId: string) {
+  async getJudgeSchedules(judgeId: string, start: Date, end: Date) {
+    if (!Types.ObjectId.isValid(judgeId)) {
+      throw new BadRequestException('Invalid judge ID format');
+    }
     return this.scheduleModel
-      .find({ judges: judgeId })
+      .find({
+        judges: new Types.ObjectId(judgeId),
+        date: {
+          $gte: start,
+          $lte: end,
+        },
+      })
       .select('roundId startupId date startTime endTime room')
       .populate('startupId', 'name');
   }
+
   async bulkRegisterJudges(judges: CreateJudgeDto[]) {
     const existingJudges = await this.judgeModel.find({
       email: { $in: judges.map((judge) => judge.email) },

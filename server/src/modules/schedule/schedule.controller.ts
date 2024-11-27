@@ -7,12 +7,14 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import { ScheduleService } from './schedule.service';
 import {
   CreateScheduleDto,
   QueryScheduleDto,
   AssignJudgesDto,
+  DateRangeDto,
 } from './schedule.dto';
 import { SpreadsheetUrlDto } from 'src/common/dto';
 import { SpreadsheetService } from 'src/services/spreadsheet/spreadsheet.service';
@@ -31,20 +33,22 @@ export class ScheduleController {
     return this.scheduleService.listSchedules(query);
   }
 
-  @Get(':date')
+  @Get('/range')
   @Auth(['admin'], [Permission.MANAGE_SCHEDULES])
-  async getSchedulesByDate(@Param('date') eventDate: Date) {
-    return this.scheduleService.getSchedulesByDate(eventDate);
+  async getSchedulesByDate(@Query() dateRange: DateRangeDto) {
+    const startDate = new Date(dateRange.start);
+    const endDate = new Date(dateRange.end);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      throw new BadRequestException('Invalid date format');
+    }
+
+    return this.scheduleService.getSchedulesByDate(startDate, endDate);
   }
 
   @Get('judges/:id')
   async getSchedulesByJudgeId(@Param('id') id: string) {
     return this.scheduleService.getSchedulesByJudgeId(id);
-  }
-
-  @Get(':id')
-  async getScheduleById(@Param('id') id: string) {
-    return this.scheduleService.getScheduleById(id);
   }
 
   @Post()
