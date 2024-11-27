@@ -62,29 +62,41 @@ const RankingsTab = () => {
       {/* Input for number of startups to display */}
       <Flex spacing="4"  marginY="10px" justifyContent='space-between' width='full'>
         <Stack direction="row" spacing="4"  marginY="10px" width="75%">
-            <Text> Input the number of startups to be displayed (by rank):</Text>
-            <Input
-            placeholder="Top (number)"
-            type="number"
-            value={numStartups}
-            w={"150px"}
-            onChange={(e) => setNumStartups(Number(e.target.value))}
-            />
-            <Select
-            placeholder="Select Round"
-            value={selectedRound}
-            w={"200px"}
-            onChange={(e) => setSelectedRound(e.target.value)}
-            >
-            {rounds.map((round) => (
-                <option key={round} value={round}>
-                {round}
-                </option>
-            ))}
-            </Select>
-            <Button color="white" bg="black" onClick={() => {}}>
-            Submit
-            </Button>
+            <Text className='flex justify-center items-center gap-2 p-2'> 
+              <div>
+                Get the top
+              </div>
+              <div>
+              <Input
+                placeholder="Top (number)"
+                type="number"
+                value={numStartups}
+                w={"50px"}
+                onChange={(e) => setNumStartups(Number(e.target.value))}
+                />
+              </div>
+              <div>
+                startups from round
+              </div>
+              <div>
+              <Select
+                placeholder="Select Round"
+                value={selectedRound}
+                w={"150px"}
+                onChange={(e) => setSelectedRound(e.target.value)}
+                >
+                {rounds.map((round) => (
+                    <option key={round} value={round}>
+                    {round}
+                    </option>
+                ))}
+                </Select>
+              </div>
+              <Button color="white" bg="black" onClick={() => {}}>
+                Submit
+              </Button>
+            </Text>
+            
         </Stack>
 
         {/* Export Button */}
