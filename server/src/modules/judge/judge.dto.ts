@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsArray, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsString,IsNotEmpty, IsOptional } from 'class-validator';
 
 export class CreateJudgeDto {
   @IsString({ message: 'Firstname should be a string' })
@@ -16,6 +16,10 @@ export class CreateJudgeDto {
   @IsString({ message: 'Expertise should be a string' })
   @IsNotEmpty({ message: 'Expertise is required' })
   expertise: string;
+
+  @IsOptional()
+  @IsString({ message: 'EntityId should be a string' })
+  entityId?: string;
 }
 
 export class LoginJudgeDto {

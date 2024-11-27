@@ -1,11 +1,7 @@
-import { IsString, IsNumber, IsArray, IsNotEmpty, ValidateNested, Min } from 'class-validator';
+import { IsString, IsNumber, IsArray, IsNotEmpty, ValidateNested, Min, IsOptional, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class QuestionDto {
-  @IsString()
-  @IsNotEmpty()
-  id: string;
-
   @IsString()
   @IsNotEmpty()
   question: string;
@@ -14,15 +10,15 @@ class QuestionDto {
 class CriteriaDto {
   @IsString()
   @IsNotEmpty()
-  id: string;
-
-  @IsString()
-  @IsNotEmpty()
   question: string;
 
   @IsNumber()
   @Min(0)
   weight: number;
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean
 
   @IsArray()
   @ValidateNested({ each: true })

@@ -13,9 +13,6 @@ import { User, UserDocument } from 'src/models/user.schema';
 import { Admin } from 'src/models/admin.schema';
 import { Judge } from 'src/models/judge.schema';
 import { RegisterAdminDto } from 'src/modules/admin/admin.dto';
-import { CreateJudgeDto } from 'src/modules/judge/judge.dto';
-import { generateRandomPassword } from 'src/common/utils';
-import { NotificationsService } from 'src/modules/notifications/notifications.service';
 import { InvalidRefreshTokenError } from './auth.errors';
 
 @Injectable()
@@ -25,7 +22,6 @@ export class AuthService {
     @InjectModel(Admin.name) private adminModel: Model<Admin>,
     @InjectModel(Judge.name) private judgeModel: Model<Judge>,
     private jwtService: JwtService,
-    private mailService: NotificationsService,
   ) {}
 
   async registerAdmin(createAdminDto: RegisterAdminDto) {
@@ -70,59 +66,6 @@ export class AuthService {
     }
   }
 
-  async registerJudge(createJudgeDto: CreateJudgeDto) {
-    const session = await this.userModel.db.startSession();
-    session.startTransaction();
-
-    try {
-      // Generate random password for judge
-      const password = generateRandomPassword();
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Create judge record
-      const judge = new this.judgeModel({
-        firstname: createJudgeDto.firstname,
-        lastname: createJudgeDto.lastname,
-        email: createJudgeDto.email,
-        expertise: createJudgeDto.expertise,
-      });
-      const savedJudge = await judge.save({ session });
-
-      // Create user record linking to judge
-      const user = new this.userModel({
-        email: createJudgeDto.email,
-        password: hashedPassword,
-        role: UserRole.JUDGE,
-        roleId: savedJudge._id,
-      });
-      await user.save({ session });
-
-      await session.commitTransaction();
-
-      // Send credentials email
-      await this.mailService.sendCredentialsEmail(
-        createJudgeDto.email,
-        password,
-        `${savedJudge.firstname} ${savedJudge.lastname}`,
-      );
-
-      return {
-        id: savedJudge._id,
-        firstname: savedJudge.firstname,
-        lastname: savedJudge.lastname,
-        email: savedJudge.email,
-        expertise: savedJudge.expertise,
-      };
-    } catch (error) {
-      await session.abortTransaction();
-      if (error.code === 11000) {
-        throw new ConflictException('Email already exists');
-      }
-      throw error;
-    } finally {
-      session.endSession();
-    }
-  }
 
   async login(loginDto: LoginDto) {
     const user = await this.userModel.findOne({ email: loginDto.email });

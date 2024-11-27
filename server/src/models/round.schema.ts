@@ -7,7 +7,7 @@ class Question {
   id: string;
 
   @Prop()
-  question: string; 
+  question: string;
 }
 
 @Schema()
@@ -16,11 +16,11 @@ class Criteria {
   id: string;
 
   @Prop()
-  question:string
+  question: string;
 
-  @Prop()
+  @Prop({default: true})
   active: boolean;
-  
+
   @Prop()
   weight: number;
 
@@ -34,6 +34,9 @@ export type RoundDocument = Round & Document;
 export class Round {
   @Prop({ required: true })
   name: string;
+
+  @Prop({ unique: true, required: false })
+  entityId?: string;
 
   @Prop([Criteria])
   criteria: Criteria[];

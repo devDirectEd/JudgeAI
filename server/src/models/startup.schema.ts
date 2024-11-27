@@ -31,15 +31,6 @@ export class Startup {
 
   @Prop()
   category: string;
-
-  @Prop([Feedback])
-  feedback: Feedback[];
-
-  @Prop({ type: [{ type: Types.ObjectId, ref: 'Judge' }] })
-  judgeIds: Types.ObjectId[];
-
-  @Prop({ type: [{ type: Types.ObjectId, ref: 'Result' }] })
-  results: Types.ObjectId[];
 }
 
 export const StartupSchema = SchemaFactory.createForClass(Startup);

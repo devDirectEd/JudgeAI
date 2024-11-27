@@ -2,8 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { Resend } from 'resend';
-
-
+interface SendEmailProps {
+  from: string;
+  to: string;
+  subject: string;
+  body: any;
+}
 @Injectable()
 export class NotificationsService {
   private transporter: nodemailer.Transporter;
@@ -14,17 +18,19 @@ export class NotificationsService {
   constructor(private configService: ConfigService) {
     this.resend = new Resend(this.configService.get('RESEND_API_KEY'));
     this.transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: this.configService.get('EMAIL_USER'),
-          pass: this.configService.get('EMAIL_PASS'),
-        },
-      });
+      service: 'gmail',
+      auth: {
+        user: this.configService.get('EMAIL_USER'),
+        pass: this.configService.get('EMAIL_PASS'),
+      },
+    });
   }
 
- 
-
-  async sendCredentialsEmail(email: string, password: string, name: string): Promise<void> {
+  async sendCredentialsEmail(
+    email: string,
+    password: string,
+    name: string,
+  ): Promise<void> {
     const mailOptions = {
       from: this.configService.get('EMAIL_USER'),
       to: email,
@@ -52,18 +58,34 @@ export class NotificationsService {
 
     await this.transporter.sendMail(mailOptions);
   }
-  
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
+  async sendEmail({ from, to, subject, body }: SendEmailProps) {
+    try {
+      const resend = new Resend(
+        this.configService.get<string>('RESEND_API_KEY'),
+      );
 
-  async sendBatchEmails(emailConfigs: Array<{
-    from: string;
-    to: string;
-    subject: string;
-    html: string;
-  }>) {
+      return await resend.emails.send({
+        from,
+        to,
+        subject,
+        html: body,
+      });
+    } catch (error) {
+      throw error;
+    }
+  }
+  async sendBatchEmails(
+    emailConfigs: Array<{
+      from: string;
+      to: string;
+      subject: string;
+      html: string;
+    }>,
+  ) {
     const results = [];
 
     for (let i = 0; i < emailConfigs.length; i += this.BATCH_SIZE) {

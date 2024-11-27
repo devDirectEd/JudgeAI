@@ -9,6 +9,7 @@ import {
   Put,
   Param,
   Delete,
+  Get,
 } from '@nestjs/common';
 import { RoundService } from './round.service';
 import { CreateRoundDto } from './round.dto';
@@ -24,6 +25,13 @@ export class RoundController {
     private readonly spreadsheetService: SpreadsheetService,
   ) {}
 
+  @Get()
+  @Auth(['admin'], [Permission.MANAGE_ROUNDS])
+  @HttpCode(HttpStatus.OK)
+  async listRounds() {
+    return this.roundService.listAllRounds();
+  }
+  
   @Post()
   @Auth(['admin'], [Permission.MANAGE_ROUNDS])
   @HttpCode(HttpStatus.CREATED)

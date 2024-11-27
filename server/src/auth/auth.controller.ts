@@ -37,8 +37,8 @@ export class AuthController {
   @Public()
   @Post('judge/login')
   @HttpCode(HttpStatus.CREATED)
-  async loginJudge(@Body() signupDto: CreateJudgeDto) {
-    return this.authService.registerJudge(signupDto);
+  async loginJudge(@Body() loginDto: LoginDto) {
+    return this.authService.login(loginDto);
   }
 
   @Public()

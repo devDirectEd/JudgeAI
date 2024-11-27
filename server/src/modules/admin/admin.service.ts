@@ -16,15 +16,23 @@ export class AdminService {
     private readonly jwtService: JwtService,
   ) {}
   async getMetrics(): Promise<AdminMetrics> {
-    const metrics: AdminMetrics = {} as AdminMetrics;
-    //map through the metrics obj, intialize the value to 0
-    Object.keys(metrics).forEach((key) => {
-      metrics[key] = 0;
-    });
-    
+    const metrics: AdminMetrics = {
+      averageScore: 0,
+      totalJudges: 0,
+      totalStartups: 0,
+      upcomingPitches: 0,
+    }
+
     //get the total number of judges
     metrics.totalJudges = await this.judgeModel.countDocuments();
     metrics.totalStartups = await this.startupModel.countDocuments();
     return metrics;
+  }
+  async getAdminById(id: string): Promise<AdminDocument> {
+    try {
+      return this.adminModel.findById(id);
+    } catch (error) {
+      throw error;
+    }
   }
 }
