@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-    //baseURL: 'https://judgeai.onrender.com/api/v1',
-    baseURL: 'https://01mv1z46-8080.inc1.devtunnels.ms/api/v1',
+    baseURL: 'https://judgeai.onrender.com/api/v1',
+    //baseURL: 'https://01mv1z46-8080.inc1.devtunnels.ms/api/v1',
     headers: {
         'Content-Type': 'application/json'
     }
