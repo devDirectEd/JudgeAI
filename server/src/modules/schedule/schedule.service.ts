@@ -16,6 +16,7 @@ import { Schedule, ScheduleDocument } from 'src/models/schedule.schema';
 import { Judge } from 'src/models/judge.schema';
 import { Startup } from 'src/models/startup.schema';
 import { Round } from 'src/models/round.schema';
+import { JudgeService } from '../judge/judge.service';
 
 @Injectable()
 export class ScheduleService {
@@ -24,11 +25,30 @@ export class ScheduleService {
     @InjectModel(Judge.name) private judgeModel: Model<Judge>,
     @InjectModel(Startup.name) private startupModel: Model<Startup>,
     @InjectModel(Round.name) private roundModel: Model<Round>,
+    private judgeService: JudgeService,
   ) {}
 
   async create(createScheduleDto: CreateScheduleDto): Promise<Schedule> {
-    const schedule = new this.scheduleModel(createScheduleDto);
-    return schedule.save();
+    // Transform judges array to new format
+    const formattedJudges = createScheduleDto.judges.map(judgeId => ({
+      judge: judgeId,
+      evaluated: false
+    }));
+    
+    const schedule = new this.scheduleModel({
+      ...createScheduleDto,
+      judges: formattedJudges
+    });
+    
+    await schedule.save();
+    
+    // Update to pass only judge IDs
+    await this.judgeService.addAndNotifyJudgeofSchedule(
+      schedule.judges.map(judge => judge.judge.toString()),
+      schedule._id as string,
+    );
+    
+    return schedule;
   }
 
   async listSchedules(query: QueryScheduleDto = {}): Promise<Schedule[]> {
@@ -52,7 +72,7 @@ export class ScheduleService {
         .populate('startupId', 'name')
         .populate('roundId', 'name')
         .populate({
-          path: 'judges',
+          path: 'judges.judge',
           select: 'firstname lastname email',
           model: 'Judge',
         })
@@ -62,6 +82,7 @@ export class ScheduleService {
       throw error;
     }
   }
+
   async getScheduleById(id: string): Promise<Schedule> {
     const schedule = await this.scheduleModel.findById(id);
     if (!schedule) {
@@ -70,39 +91,15 @@ export class ScheduleService {
     return schedule;
   }
 
-  async assignJudges(
-    scheduleId: string,
-    { judgeIds }: AssignJudgesDto,
-  ): Promise<Schedule> {
-    if (!judgeIds?.length) {
-      throw new BadRequestException('No judge IDs provided');
-    }
-
-    const validJudges = await this.judgeModel.find({ _id: { $in: judgeIds } });
-    if (validJudges.length !== judgeIds.length) {
-      throw new BadRequestException('One or more judge IDs are invalid');
-    }
-
-    const schedule = await this.scheduleModel.findById(scheduleId);
-    if (!schedule) {
-      throw new NotFoundException('Schedule not found');
-    }
-
-    schedule.judges = [
-      ...schedule.judges,
-      ...judgeIds.map((id) => new Types.ObjectId(id)),
-    ];
-    return schedule.save();
-  }
-
   async getSchedulesByJudgeId(judgeId: string): Promise<Schedule[]> {
     return this.scheduleModel
-      .find({ judges: new Types.ObjectId(judgeId) })
+      .find({ 'judges.judge': new Types.ObjectId(judgeId) })
       .populate('roundId', 'name')
       .populate('startupId', 'name')
-      .populate('judges', 'firstname lastname email')
+      .populate('judges.judge', 'firstname lastname email')
       .select('-__v');
   }
+
   async bulkAddSchedules(
     schedules: CreateScheduleViaUploadDto[],
   ): Promise<Schedule[]> {
@@ -119,7 +116,7 @@ export class ScheduleService {
         // Find all valid judges
         const validJudges = await this.judgeModel.find({
           entityId: {
-            $in: judges,
+            $in: judges
           },
         });
 
@@ -137,7 +134,6 @@ export class ScheduleService {
           };
         }
 
-        // Return both validation status and entity data
         return {
           isValid: true,
           schedule,
@@ -163,9 +159,9 @@ export class ScheduleService {
       );
     }
 
-    // Transform schedules with MongoDB _ids
+    // Transform schedules with MongoDB _ids and new judges format
     const transformedSchedules = validationResults.map((result) => {
-      if (!result.isValid || !result.entities) return result.schedule; // This should never happen due to previous validation
+      if (!result.isValid || !result.entities) return result.schedule;
 
       const { round, validJudges, startup } = result.entities;
 
@@ -173,12 +169,23 @@ export class ScheduleService {
         ...result.schedule,
         roundId: round._id,
         startupId: startup._id,
-        judges: validJudges.map((judge) => judge._id),
+        judges: validJudges.map(judge => ({
+          judge: judge._id,
+          evaluated: false
+        })),
       };
     });
 
-    const insertedSchedules =
-      await this.scheduleModel.insertMany(transformedSchedules);
+    const insertedSchedules = await this.scheduleModel.insertMany(transformedSchedules);
+
+    // Update to pass only judge IDs
+    for (const schedule of insertedSchedules) {
+      await this.judgeService.addAndNotifyJudgeofSchedule(
+        schedule.judges.map(judge => judge.judge.toString()),
+        schedule._id as string,
+      );
+    }
+    
     return insertedSchedules.map((schedule) => schedule.toObject() as Schedule);
   }
 }

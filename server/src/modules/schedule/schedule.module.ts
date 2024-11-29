@@ -6,6 +6,9 @@ import { ScheduleController } from './schedule.controller';
 import { ScheduleService } from './schedule.service';
 import { Startup, StartupSchema } from 'src/models/startup.schema';
 import { Round, RoundSchema } from 'src/models/round.schema';
+import { JudgeService } from '../judge/judge.service';
+import { User, UserSchema } from 'src/models/user.schema';
+import { JudgeModule } from '../judge/judge.module';
 
 @Module({
   imports: [
@@ -13,11 +16,12 @@ import { Round, RoundSchema } from 'src/models/round.schema';
       { name: Schedule.name, schema: ScheduleSchema },
       { name: Judge.name, schema: JudgeSchema },
       { name: Startup.name, schema:StartupSchema},
-      { name: Round.name, schema:RoundSchema}
+      { name: Round.name, schema:RoundSchema},
     ]),
+    JudgeModule
   ],
   controllers: [ScheduleController],
-  providers: [ScheduleService],
+  providers: [ScheduleService, JudgeService],
   exports: [ScheduleService, MongooseModule],
 })
 export class ScheduleModule {}

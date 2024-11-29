@@ -16,6 +16,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './common/guards/auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
+import { ResultsModule } from './modules/results/results.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     NotificationsModule,
     StartupModule,
     SpreadsheetModule,
+    ResultsModule,
   ],
   controllers: [AppController],
   providers: [
