@@ -33,18 +33,50 @@ const createInitialSectionState = (questions) => {
 };
 
 // Create initial state for all sections
-const createInitialFormState = (sections) => {
-  const initialState = {
-    overallFeedback: '',
-    nominateNextRound: false,
-    mentorStartup: false,
-    meetStartup: false,
+const createInitialFormState = (sections, evaluationData) => {
+    if (!evaluationData) {
+      const initialState = {
+        overallFeedback: '',
+        nominateNextRound: false,
+        mentorStartup: false,
+        meetStartup: false,
+      };
+      sections.forEach(section => {
+        initialState[section.id] = createInitialSectionState(section.questions);
+      });
+      return initialState;
+    }
+  
+    // Pre-fill with evaluation data
+    const initialState = {
+      overallFeedback: evaluationData.overallFeedback || '',
+      nominateNextRound: evaluationData.nominateNextRound || false,
+      mentorStartup: evaluationData.mentorStartup || false,
+      meetStartup: evaluationData.meetStartup || false,
+    };
+  
+    sections.forEach(section => {
+      const sectionId = section.id;
+      // Clean section ID by removing weight pattern and trailing hyphens
+      const cleanSectionId = sectionId
+        .replace(/-\d+-\d+%?-?/g, '')
+        .replace(/-+$/, ''); // Remove trailing hyphens
+      
+      const sectionScores = evaluationData.sectionScores[cleanSectionId];
+      
+      initialState[section.id] = {
+        scores: section.questions.reduce((acc, question) => {
+          const score = sectionScores?.individualScores[question._id] || null;
+          acc[question._id] = score;
+          return acc;
+        }, {}),
+        feedback: sectionScores?.feedback || '',
+        isSkipped: sectionScores?.isSkipped || false
+      };
+    });
+  
+    return initialState;
   };
-  sections.forEach(section => {
-    initialState[section.id] = createInitialSectionState(section.questions);
-  });
-  return initialState;
-};
 
 
 const SummaryScoreSelector = ({ sectionId, formState, onBulkScore }) => {
@@ -167,7 +199,7 @@ ScoreSection.propTypes = {
   onSkip: PropTypes.func.isRequired,
 };
 
-export default function Score() {
+export default function EditScore() {
   const [status, setStatus] = useState('idle');
   const [time, setTime] = useState(0);
   const [hasStarted, setHasStarted] = useState(false);
@@ -182,7 +214,7 @@ export default function Score() {
   const [isLoading, setIsLoading] = useState(true);
   const toast = useToast();
   const {userId} = useSelector(state => state.auth);
-  const { id: scheduleId } = useParams();
+  const { id: evaluationId } = useParams();
   const navigate = useNavigate();
   const [submitLoading, setSubmitLoading] = useState(false)
 
@@ -190,29 +222,41 @@ export default function Score() {
     const getQuestions = async () => {
       setIsLoading(true);
       try {
-        const response = await axiosInstance.get(`schedules/${scheduleId}/questions`);
+        const response = await axiosInstance.get(`evaluations/single/${evaluationId}`);
+        console.log(response.data)
+        
         if (response.data) {
-          const { scoringDetails } = response.data;
+          const { roundId: { criteria }, ...evaluationData } = response.data;
           
-          // Transform the scoring details to match your component's format
-          const transformedSections = scoringDetails.map(section => ({
-            id: section.title.toLowerCase().replace(/[\s()/%]/g, '-').replace(/-+/g, '-'),
-            title: section.title,
-            questions: section.questions, // Keep the original question objects with IDs
-            weight: section.weight
-          }));
-  
+          // Transform criteria to match component's format
+          const transformedSections = criteria
+            .filter(section => section.active)
+            .map(section => ({
+              id: `${section.question.toLowerCase().replace(/[\s()/%]/g, '-').replace(/-+/g, '-')}-${section.weight}-100%`,
+              title: `${section.question} (${section.weight}/100%)`,
+              questions: section.sub_questions,
+              weight: section.weight
+            }));
+
           setScoringSections(transformedSections);
-          setFormState(prev => ({
-            ...prev,
-            ...createInitialFormState(transformedSections)
-          }));
+          
+          // Initialize form state with evaluation data
+          const initialState = createInitialFormState(transformedSections, evaluationData);
+          setFormState(initialState);
+
+          // Set timer
+          if (evaluationData.scoringTime) {
+            const [minutes, seconds] = evaluationData.scoringTime.split(':').map(Number);
+            setTime(minutes * 60 + seconds);
+            setHasStarted(true);
+            setStatus('paused');
+          }
         }
       } catch (error) {
-        console.error("Error fetching questions:", error);
+        console.error("Error fetching evaluation:", error);
         toast({
           title: "Error",
-          description: "Failed to load scoring criteria",
+          description: "Failed to load evaluation data",
           status: "error",
           duration: 3000,
           isClosable: true,
@@ -221,11 +265,9 @@ export default function Score() {
         setIsLoading(false);
       }
     };
-  
+
     getQuestions();
-  }, [scheduleId, toast]);
-
-
+  }, [evaluationId, toast]);
 
     useEffect(() => {
         let interval;
@@ -398,7 +440,11 @@ const handleSubmit = async () => {
   let totalScore = 0;
   
   scoringSections.forEach(section => {
-    const sectionId = section.id.replace(/-\d+-\d+%?-?/g, ''); // Remove weight pattern from ID
+    // Clean section ID by removing weight pattern and trailing hyphens
+    const sectionId = section.id
+      .replace(/-\d+-\d+%?-?/g, '')
+      .replace(/-+$/, '');
+
     const sectionState = formState[section.id];
     const isSkipped = sectionState.isSkipped;
     
@@ -430,11 +476,13 @@ const handleSubmit = async () => {
     totalScore += weightedScore;
   });
 
-  // Create a cleaned version of the raw form data with cleaned section IDs
+  // Clean section IDs in rawFormData
   const cleanedFormData = {};
   Object.keys(formState).forEach(key => {
     if (scoringSections.some(section => section.id === key)) {
-      const cleanedKey = key.replace(/-\d+-\d+%?-?/g, ''); // Remove weight pattern from key
+      const cleanedKey = key
+        .replace(/-\d+-\d+%?-?/g, '')
+        .replace(/-+$/, '');
       cleanedFormData[cleanedKey] = formState[key];
     }
   });
@@ -452,10 +500,11 @@ const handleSubmit = async () => {
     rawFormData: cleanedFormData
   };
 
+
   console.log("Submittion data", submissionData)
 
   try {
-    const response = await axiosInstance.post(`evaluations/${scheduleId}/add`, submissionData);
+    const response = await axiosInstance.put(`/evaluations/${evaluationId}/update`, submissionData);
     
     if (response.data) {
       setSubmitLoading(false)
@@ -657,7 +706,7 @@ const handleSubmit = async () => {
                                 <>
                                   <Spinner size="sm" color="#000000" />
                                 </> : 
-                                "Submit Scores"}
+                                "Edit Scores"}
                             </Button>
                         </div>
                     </div>

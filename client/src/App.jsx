@@ -13,6 +13,7 @@ import AdminDashboard from "./pages/admin/DashBoard";
 import Score from "./pages/judges/Score";
 import { checkAuthState } from "./redux/slices/AuthenticationSlice";
 import "./App.css";
+import EditScore from "./pages/judges/EditEvaluation";
 
 const LoadingSpinner = () => (
   <div style={{ 
@@ -129,6 +130,14 @@ function App() {
         element={
           <ProtectedRoute allowedRole="judge">
             <Score />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/judge/dashboard/edit/:id"
+        element={
+          <ProtectedRoute allowedRole="judge">
+            <EditScore />
           </ProtectedRoute>
         }
       />
