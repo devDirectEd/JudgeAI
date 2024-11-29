@@ -35,17 +35,22 @@ export class Schedule {
   remoteRoom?: string;
 
   @Prop({
-    type: [{ type: Types.ObjectId, ref: 'Judge' }],
+    type: [
+      {
+        judge: { type: Types.ObjectId, ref: 'Judge' },
+        evaluated: { type: Boolean, default: false },
+      },
+    ],
 
     validate: {
-      validator: function (v: any[]) {
+      validator: function (v: { judge: Types.ObjectId; evaluated: boolean }[]) {
         return v.length >= 3;
       },
-      message: 'Judges array must have at least 3 judges',
+      message: 'At least 3 judges are required',
     },
     required: true,
   })
-  judges: Types.ObjectId[];
+  judges: { judge: Types.ObjectId; evaluated: boolean }[];
 }
 
 export const ScheduleSchema = SchemaFactory.createForClass(Schedule);

@@ -58,15 +58,6 @@ export class ScheduleController {
     return this.scheduleService.create(createScheduleDto);
   }
 
-  @Post(':id/assignJudges')
-  @Auth(['admin'], [Permission.MANAGE_SCHEDULES])
-  async assignJudges(
-    @Param('id') id: string,
-    @Body() assignJudgesDto: AssignJudgesDto,
-  ) {
-    return this.scheduleService.assignJudges(id, assignJudgesDto);
-  }
-
   @Post('import')
   @Auth(['admin'], [Permission.MANAGE_SCHEDULES])
   @HttpCode(HttpStatus.CREATED)

@@ -89,6 +89,33 @@ export class JudgeService {
     }
   }
 
+  async addAndNotifyJudgeofSchedule(judgeIds: string[], scheduleId: string) {
+    const judges = await this.judgeModel.find({ _id: { $in: judgeIds } });
+    if (!judges || judges.length === 0 || judges.length !== judgeIds.length) {
+      throw new BadRequestException('An error occured while linking judges to their schedules');
+    }
+    const schedule = await this.scheduleModel.findById(scheduleId);
+    if (!schedule) {
+      throw new BadRequestException('No schedule found');
+    }
+    for (const judge of judges) {
+      if (!judge.schedules) {
+        judge.schedules = [];
+      }
+      judge.schedules.push(new Types.ObjectId(scheduleId));
+      await judge.save();
+
+      judges.forEach(async (judge) => {
+        //TODO: Send email to judge using resend
+        // await this.mailService.sendEmail({
+        //   from: process.env.FROM_ADDRESS,
+        //   subject: 'New Schedule',
+        //   body: `You have been assigned to a new schedule. Please check your dashboard for more details.`,
+        //   to: judge.email,
+        // });
+      });
+    }
+  }
   async updateJudge(judgeId: string, updateJudgeDto: CreateJudgeDto) {
     try {
       const judge = await this.judgeModel.findByIdAndUpdate(
@@ -121,35 +148,37 @@ export class JudgeService {
 
   async getJudgeSchedules(judgeId: string, start: Date, end: Date) {
     if (!Types.ObjectId.isValid(judgeId)) {
-        throw new BadRequestException('Invalid judge ID format');
+      throw new BadRequestException('Invalid judge ID format');
     }
+    
     return this.scheduleModel
-        .find({
-            judges: judgeId,
-            date: {
-                $gte: start,
-                $lte: end,
-            },
-        })
-        .select('roundId startupId date startTime endTime room judges')
-        .populate([
-            {
-                path: 'startupId',
-                select: 'name'
-            },
-            {
-                path: 'roundId',
-                select: 'name'
-            },
-            {
-                path: 'judges',
-                select: 'firstname lastname email',
-                model: 'Judge'
-            }
-        ])
-        .lean()  
-        .exec();  
-}
+      .find({
+        'judges.judge': new Types.ObjectId(judgeId), 
+        'judges.evaluated': false,
+        date: {
+          $gte: start,
+          $lte: end,
+        },
+      })
+      .select('roundId startupId date startTime endTime room judges')
+      .populate([
+        {
+          path: 'startupId',
+          select: 'name',
+        },
+        {
+          path: 'roundId',
+          select: 'name',
+        },
+        {
+          path: 'judges.judge',
+          select: 'firstname lastname email',
+          model: 'Judge',
+        },
+      ])
+      .lean()
+      .exec();
+  }
 
   async bulkRegisterJudges(judges: CreateJudgeDto[]) {
     const existingJudges = await this.judgeModel.find({
