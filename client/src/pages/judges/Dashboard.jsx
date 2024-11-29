@@ -16,108 +16,10 @@ import { useNavigate } from "react-router-dom"
 import CalendarSchedule from "@/components/components/CalenderSchedule"
 import axiosInstance from "@/redux/axiosInstance"
 import { useSelector } from "react-redux"
+import { format } from "date-fns"
+import { Spinner } from "@chakra-ui/react"
 
-// Also update evaluation dates
-const initialEvaluationsData = [
-  { id: "e1", company: "AI Vision Corp", date: "2024-11-19", score: 4.5, nominated: true, toBeMentored: false, meetStartup: false },
-  { id: "e2", company: "NLP Innovations", date: "2024-11-19", score: 4.5, nominated: false, toBeMentored: false, meetStartup: true },
-  { id: "e3", company: "Tech Innovators", date: "2024-11-19", score: 4.5, nominated: true, toBeMentored: false, meetStartup: false },
-  { id: "e4", company: "DataViz AI", date: "2024-11-20", score: 4.5, nominated: false, toBeMentored: true, meetStartup: false },
-  { id: "e5", company: "AI Analytics", date: "2024-11-20", score: 4.5, nominated: false, toBeMentored: false, meetStartup: true },
-  { id: "e6", company: "Neural Systems", date: "2024-11-20", score: 4.5, nominated: true, toBeMentored: false, meetStartup: false }
-];
-
-// Helper function to convert 12-hour format to 24-hour format for sorting
-const convertTo24Hour = (time12h) => {
-  // Handle the case where time is already in 24-hour format
-  if (!time12h.includes('AM') && !time12h.includes('PM')) {
-    return time12h;
-  }
-
-  const [time, modifier] = time12h.split(' ');
-  let [hours, minutes] = time.split(':');
-  
-  // Convert hours to number for calculation
-  hours = parseInt(hours, 10);
-  
-  if (modifier === 'PM' && hours < 12) {
-    hours = hours + 12;
-  }
-  if (modifier === 'AM' && hours === 12) {
-    hours = 0;
-  }
-  
-  // Convert back to string and pad
-  return `${String(hours).padStart(2, '0')}:${minutes}`;
-};
-
-
-const transformScheduleData = (apiData) => {
-  return apiData.map(item => {
-    // Convert API date format to match the expected format
-    const dateObj = new Date(item.date);
-    const formattedDate = dateObj.toISOString().split('T')[0];
-
-    return {
-      id: item._id,
-      startupId: item.startupId, 
-      startup: item.startupId,
-      startTime: item.startTime,
-      endTime: item.endTime,
-      room: item.room,
-      date: formattedDate
-    };
-  }).sort((a, b) => {
-    // First sort by date
-    if (a.date !== b.date) {
-      return new Date(a.date) - new Date(b.date);
-    }
-    // Then sort by time
-    try {
-      const timeA = convertTo24Hour(a.startTime);
-      const timeB = convertTo24Hour(b.startTime);
-      return timeA.localeCompare(timeB);
-    } catch (error) {
-      console.error('Error sorting times:', error);
-      return 0; // Keep original order if there's an error
-    }
-  });
-};
-
-// Define prop types for evaluation data
-const evaluationItemPropType = PropTypes.shape({
-  id: PropTypes.string.isRequired,
-  company: PropTypes.string.isRequired,
-  date: PropTypes.string.isRequired,
-  score: PropTypes.number.isRequired,
-  nominated: PropTypes.bool.isRequired,
-  toBeMentored: PropTypes.bool.isRequired,
-  meetStartup: PropTypes.bool.isRequired,
-});
-
-const useLocalStorageData = (key, initialData) => {
-  const [data, setData] = useState(() => {
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialData;
-    } catch (error) {
-      console.error(`Error reading localStorage key "${key}":`, error);
-      return initialData;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(key, JSON.stringify(data));
-    } catch (error) {
-      console.error(`Error setting localStorage key "${key}":`, error);
-    }
-  }, [key, data]);
-
-  return [data, setData];
-};
-
-const PastEvaluations = ({ evaluationsData }) => (
+const PastEvaluations = ({ evaluations, navigate, isLoadingEvaluations }) => (
   <Card className="p-4 bg-[#242424] text-[#F8FAF7] border-0">
     <h2 className="text-lg font-semibold mb-4">Past Evaluations</h2>
     <Table className="bg-white rounded-lg">
@@ -133,88 +35,149 @@ const PastEvaluations = ({ evaluationsData }) => (
         </TableRow>
       </TableHeader>
       <TableBody className="bg-[#404040]">
-        {evaluationsData.map((evaluation) => (
-          <TableRow key={evaluation.id}>
-            <TableCell>{evaluation.company}</TableCell>
-            <TableCell>{evaluation.date}</TableCell>
-            <TableCell>
-              <span className="rounded-full px-4 py-2 w-16 h-[30px] border-black border flex justify-center items-center gap-2">
-                <img src="/star-01.svg" alt="star" width={16} height={16} /> 
-                <p>{evaluation.score}</p>
-              </span>
-            </TableCell>
-            <TableCell>
-              <span className={`rounded-full px-4 py-2 ${
-                evaluation.nominated ? 'bg-[#DCFCE7] text-[#65AF4F]' : 'bg-[#F4F4F5] text-black'
-              }`}>
-                {evaluation.nominated ? 'Yes' : 'No'}
-              </span>
-            </TableCell>
-            <TableCell>
-              <span className={`rounded-full px-4 py-2 ${
-                evaluation.toBeMentored ? 'bg-[#DCFCE7] text-[#65AF4F]' : 'bg-[#F4F4F5] text-black'
-              }`}>
-                {evaluation.toBeMentored ? 'Yes' : 'No'}
-              </span>
-            </TableCell>
-            <TableCell>
-              <span className={`rounded-full px-4 py-2 ${
-                evaluation.meetStartup ? 'bg-[#DCFCE7] text-[#65AF4F]' : 'bg-[#F4F4F5] text-black'
-              }`}>
-                {evaluation.meetStartup ? 'Yes' : 'No'}
-              </span>
-            </TableCell>
-            <TableCell>
-              <Button variant="secondary" size="sm" className="bg-[#387C80] text-white hover:bg-teal-700">
-                Review and Edit
-              </Button>
+        {isLoadingEvaluations ? (
+          <TableRow>
+            <TableCell colSpan={7} className="bg-[#404040]">
+              <div className="flex justify-center items-center p-8">
+                <Spinner size="lg" color="blue.500" />
+              </div>
             </TableCell>
           </TableRow>
-        ))}
+        ) : (
+          evaluations.map((evaluation) => (
+            <TableRow key={evaluation._id} className="hover:bg-[#444444]">
+              <TableCell>{evaluation.startupId.name || "N/A"}</TableCell>
+              <TableCell>{new Date(evaluation.createdAt).toLocaleDateString()}</TableCell>
+              <TableCell>
+                <span className="rounded-full px-4 py-2 w-20 h-[30px] border-black border flex justify-center items-center gap-2">
+                  <img src="/star-01.svg" alt="star" width={16} height={16} /> 
+                  <p>{evaluation.totalScore}</p>
+                </span>
+              </TableCell>
+              <TableCell>
+                <span className={`rounded-full px-4 py-2 ${
+                  evaluation.nominateNextRound ? 'bg-[#DCFCE7] text-[#65AF4F]' : 'bg-[#F4F4F5] text-black'
+                }`}>
+                  {evaluation.nominateNextRound ? 'Yes' : 'No'}
+                </span>
+              </TableCell>
+              <TableCell>
+                <span className={`rounded-full px-4 py-2 ${
+                  evaluation.mentorStartup ? 'bg-[#DCFCE7] text-[#65AF4F]' : 'bg-[#F4F4F5] text-black'
+                }`}>
+                  {evaluation.mentorStartup ? 'Yes' : 'No'}
+                </span>
+              </TableCell>
+              <TableCell>
+                <span className={`rounded-full px-4 py-2 ${
+                  evaluation.meetStartup ? 'bg-[#DCFCE7] text-[#65AF4F]' : 'bg-[#F4F4F5] text-black'
+                }`}>
+                  {evaluation.meetStartup ? 'Yes' : 'No'}
+                </span>
+              </TableCell>
+              <TableCell>
+                <Button 
+                  onClick={() => navigate(`/judge/dashboard/edit/${evaluation._id}`)}
+                  variant="secondary" 
+                  size="sm" 
+                  className="bg-[#387C80] text-white hover:bg-teal-700"
+                >
+                  Review and Edit
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))
+        )}
       </TableBody>
     </Table>
     <div className="mt-4 text-sm text-muted-foreground">
-      Show {evaluationsData.length} of 20 evaluations
+      Showing {evaluations.length} evaluation{evaluations.length > 1 ? "s": ""}
     </div>
   </Card>
 );
 
 PastEvaluations.propTypes = {
-  evaluationsData: PropTypes.arrayOf(evaluationItemPropType).isRequired,
+  evaluations: PropTypes.arrayOf(PropTypes.shape({
+    _id: PropTypes.string.isRequired,
+    startupId: PropTypes.shape({
+      name: PropTypes.string,
+    }),
+    createdAt: PropTypes.string.isRequired,
+    totalScore: PropTypes.number.isRequired,
+    nominateNextRound: PropTypes.bool.isRequired,
+    mentorStartup: PropTypes.bool.isRequired,
+    meetStartup: PropTypes.bool.isRequired,
+  })).isRequired,
+  navigate: PropTypes.func.isRequired,
+  isLoadingEvaluations: PropTypes.bool.isRequired
 };
 
-// Rest of the Dashboard component remains the same...
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { userId } = useSelector((state) => state.auth);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [scheduleData, setScheduleData] = useState([]);
-  const [evaluationsData, setEvaluationsData] = useLocalStorageData("evaluationsData", initialEvaluationsData);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const response = await axiosInstance.get(`/judges/schedules?self=true&start=2024-11-30&end=2024-12-31`);
-        if (response.data) {
-          const transformedData = transformScheduleData(response.data);
-          setScheduleData(transformedData);
-        }
-      } catch (error) {
-        console.error(error);
-        setScheduleData([]);
-      }
-    };
+  const [isLoadingSchedule, setIsLoadingSchedule] = useState(false);
+  const [evaluations, setEvaluations] = useState([]);
+  const [isLoadingEvaluations, setIsLoadingEvaluations] = useState(false);
 
-    loadData();
-  }, [setEvaluationsData, userId]);
+  const fetchEvaluations = async () => {
+    setIsLoadingEvaluations(true);
+    try {
+      const response = await axiosInstance.get("/evaluations?self=true");
+      setEvaluations(response.data);
+    } catch (error) {
+      console.error("Error fetching evaluations:", error);
+    } finally {
+      setIsLoadingEvaluations(false);
+    }
+  };
+
+
+  const fetchSchedules = async (date) => {
+    if (!date) return;
+    
+    setIsLoadingSchedule(true);
+    try {
+      const formattedDate = format(date, 'yyyy-MM-dd');
+      const response = await axiosInstance.get(`/judges/schedules?self=true&start=${formattedDate}&end=${formattedDate}`);
+      
+      if (response.data) {
+        const sortedData = [...response.data].sort((a, b) => {
+          const timeA = a.startTime.replace(':', '');
+          const timeB = b.startTime.replace(':', '');
+          return timeA.localeCompare(timeB);
+        });
+        setScheduleData(sortedData);
+      }
+    } catch (error) {
+      console.error("Error fetching schedules:", error);
+      setScheduleData([]);
+    } finally {
+      setIsLoadingSchedule(false);
+    }
+  };
+
+  const handleDateSelect = async (date) => {
+    setSelectedDate(date);
+    await fetchSchedules(date);
+  };
+
+  // Initial load of schedules
+  useEffect(() => {
+    fetchSchedules(selectedDate);
+    fetchEvaluations()
+  }, [selectedDate, userId]);
 
   const handleScoreNextStartup = () => {
     if (scheduleData.length > 0) {
+      const firstSchedule = scheduleData[0];
       setActiveTab("scoring");
-      navigate(`/judge/dashboard/score/${scheduleData[0].startupId}`);
+      navigate(`/judge/dashboard/score/${firstSchedule._id}`);
     }
-  };
+  };  
 
   return (
     <div className="min-h-screen bg-[#171717]">
@@ -222,6 +185,7 @@ export default function Dashboard() {
         activeTab={activeTab} 
         selectedDate={selectedDate}
         scheduleData={scheduleData}
+        evaluationsCount={evaluations.length}
       />
       
       <main className="container mx-auto p-6">
@@ -237,10 +201,15 @@ export default function Dashboard() {
             </TabsList>
             
             {activeTab === "dashboard" && (
-              <Button onClick={handleScoreNextStartup} variant="sm" className="bg-[#387C80] text-white hover:bg-[#387C80] hover:opacity-85">
-                Score next Startup
-              </Button>
-            )}
+            <Button 
+              onClick={handleScoreNextStartup} 
+              disabled={isLoadingSchedule || scheduleData.length === 0}
+              variant="sm" 
+              className="bg-[#387C80] text-white hover:bg-[#387C80] hover:opacity-85 disabled:opacity-50"
+            >
+              {isLoadingSchedule ? "Loading..." : "Score next Startup"}
+            </Button>
+          )}
           </div>
 
           <TabsContent value="dashboard">
@@ -251,12 +220,12 @@ export default function Dashboard() {
                 navigate(`/judge/dashboard/score/${id}`);
               }}
               selectedDate={selectedDate}
-              onDateSelect={setSelectedDate}
+              onDateSelect={handleDateSelect}
+              isLoadingSchedule={isLoadingSchedule}
             />
           </TabsContent>
-
           <TabsContent value="history">
-            <PastEvaluations evaluationsData={evaluationsData} />
+              <PastEvaluations evaluations={evaluations} navigate={navigate} isLoadingEvaluations={isLoadingEvaluations} />
           </TabsContent>
         </Tabs>
       </main>

@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import Navbar from "./Navbar";
 import { useEffect, useState } from "react";
 import { format, isToday, isYesterday, isTomorrow } from "date-fns";
+import { useSelector } from "react-redux";
 
 const StatCard = ({ title, value, subtitle }) => {
   return (
@@ -25,10 +26,17 @@ StatCard.propTypes = {
   subtitle: PropTypes.string.isRequired,
 };
 
-export default function JudgesHeader({ activeTab, selectedDate = new Date(), scheduleData = [] }) {    
+export default function JudgesHeader({ activeTab, selectedDate = new Date(), evaluationsCount = 0 }) {
+    const {user} = useSelector((state) => state.auth)
+    const [scheduleData, setScheduleData] = useState([]);    
     const [totalScheduleCount, setTotalScheduleCount] = useState(0);
-    const [evaluationsCount, setEvaluationsCount] = useState(0);
     const [todayScheduleCount, setTodayScheduleCount] = useState(0);
+
+    useEffect(() => {
+        if (user?.schedules) {
+            setScheduleData(user.schedules);
+        }
+    }, [user]);
 
     const getScheduleTitle = (date) => {
         if (isToday(date)) return "Today's Schedule";
@@ -38,29 +46,20 @@ export default function JudgesHeader({ activeTab, selectedDate = new Date(), sch
     };
 
     useEffect(() => {
-        // Get evaluations count from localStorage
-        const storedEvaluations = localStorage.getItem("evaluationsData");
-        if (storedEvaluations) {
-            const evaluations = JSON.parse(storedEvaluations);
-            setEvaluationsCount(evaluations.length);
+        if (scheduleData) {
+            setTotalScheduleCount(scheduleData.length);
+
+            const today = new Date();
+            const todaySchedules = scheduleData.filter(schedule => 
+                new Date(schedule.date).toDateString() === today.toDateString()
+            );
+            setTodayScheduleCount(todaySchedules.length);
         }
-
-        // Calculate schedule counts
-        setTotalScheduleCount(scheduleData.length);
-
-        // Count today's schedules
-        const today = new Date();
-        const todaySchedules = scheduleData.filter(schedule => 
-            new Date(schedule.date).toDateString() === today.toDateString()
-        );
-        setTodayScheduleCount(todaySchedules.length);
-
     }, [scheduleData]);
 
-    // Get selected date schedule count
-    const selectedDateSchedules = scheduleData.filter(schedule => 
+    const selectedDateSchedules = scheduleData?.filter(schedule => 
         new Date(schedule.date).toDateString() === selectedDate.toDateString()
-    );
+    ) || [];
 
     return (
         <div className="text-white">
@@ -104,7 +103,5 @@ export default function JudgesHeader({ activeTab, selectedDate = new Date(), sch
 JudgesHeader.propTypes = {
     activeTab: PropTypes.string.isRequired,
     selectedDate: PropTypes.instanceOf(Date),
-    scheduleData: PropTypes.arrayOf(PropTypes.shape({
-        date: PropTypes.string.isRequired,
-    })),
+    evaluationsCount: PropTypes.number,
 };

@@ -17,17 +17,31 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ChevronDown } from "lucide-react";
+import { Spinner } from '@chakra-ui/react';
 
 const scheduleItemPropType = PropTypes.shape({
-  id: PropTypes.string.isRequired,
-  startup: PropTypes.string.isRequired,
+  _id: PropTypes.string.isRequired,
+  startupId: PropTypes.shape({
+    name: PropTypes.string.isRequired,
+    _id: PropTypes.string.isRequired,
+  }).isRequired,
   startTime: PropTypes.string.isRequired,
   endTime: PropTypes.string.isRequired,
   room: PropTypes.string.isRequired,
   date: PropTypes.string.isRequired,
+  judges: PropTypes.arrayOf(PropTypes.shape({
+    judge: PropTypes.shape({
+      firstname: PropTypes.string.isRequired,
+      lastname: PropTypes.string.isRequired,
+      email: PropTypes.string.isRequired,
+      _id: PropTypes.string.isRequired,
+    }).isRequired,
+    evaluated: PropTypes.bool.isRequired,
+    _id: PropTypes.string.isRequired,
+  })).isRequired,
 });
 
-const CalendarSchedule = ({ scheduleData, onScoreStartup, selectedDate, onDateSelect }) => {
+const CalendarSchedule = ({ scheduleData, onScoreStartup, selectedDate, onDateSelect, isLoadingSchedule }) => {
   const getScheduleTitle = (date) => {
     if (isToday(date)) return "Today's Schedule";
     if (isTomorrow(date)) return "Tomorrow's Schedule";
@@ -99,7 +113,7 @@ const CalendarSchedule = ({ scheduleData, onScoreStartup, selectedDate, onDateSe
         <Table className="bg-[#F3F4F6] rounded-lg">
           <TableHeader>
             <TableRow>
-              <TableHead>Startup ID</TableHead>
+              <TableHead>Startup Name</TableHead>
               <TableHead>Start time</TableHead>
               <TableHead>End Time</TableHead>
               <TableHead>Room</TableHead>
@@ -107,17 +121,25 @@ const CalendarSchedule = ({ scheduleData, onScoreStartup, selectedDate, onDateSe
             </TableRow>
           </TableHeader>
           <TableBody className="font-medium bg-[#404040] text-[#F8FAF7]">
-            {filteredSchedule.length > 0 ? (
+          {isLoadingSchedule ? (
+            <TableRow className="hover:bg-[#444444]">
+              <TableCell colSpan={6} className="text-center py-4">
+              <div className="flex justify-center items-center h-9">
+                <Spinner size="xl" color="blue.500" />
+              </div>
+              </TableCell>
+            </TableRow>
+          ) : filteredSchedule.length > 0 ? (
               filteredSchedule.map((schedule) => (
-                <TableRow key={schedule.id}>
-                  <TableCell>{schedule.startupId}</TableCell>
+                <TableRow key={schedule._id} className="hover:bg-[#444444]">
+                  <TableCell>{schedule.startupId.name}</TableCell>
                   <TableCell>{schedule.startTime}</TableCell>
                   <TableCell>{schedule.endTime}</TableCell>
                   <TableCell>{schedule.room}</TableCell>
                   <TableCell>
                     <Button 
                       className="bg-[#282828] text-white hover:bg-[#282828] hover:opacity-90"
-                      onClick={() => onScoreStartup(schedule.startupId)}
+                      onClick={() => onScoreStartup(schedule._id)}
                     >
                       Score Startup
                     </Button>
@@ -125,8 +147,8 @@ const CalendarSchedule = ({ scheduleData, onScoreStartup, selectedDate, onDateSe
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-4">
+              <TableRow className="hover:bg-[#444444]">
+                <TableCell colSpan={6} className="text-center py-4">
                   No schedules for this date
                 </TableCell>
               </TableRow>
@@ -143,6 +165,7 @@ CalendarSchedule.propTypes = {
   onScoreStartup: PropTypes.func.isRequired,
   selectedDate: PropTypes.instanceOf(Date).isRequired,
   onDateSelect: PropTypes.func.isRequired,
+  isLoadingSchedule: PropTypes.bool.isRequired
 };
 
 export default CalendarSchedule;
