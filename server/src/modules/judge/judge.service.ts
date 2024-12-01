@@ -131,6 +131,12 @@ export class JudgeService {
       throw error;
     }
   }
+  async updateJudgeEvaluationStatus(judgeId: string, scheduleId: string) {
+    return await this.scheduleModel.updateOne(
+      { _id: scheduleId, 'judges.judge': judgeId },
+      { $set: { 'judges.$.evaluated': true } },
+    );
+  }
 
   async deleteJudge(judgeId: string) {
     const judge = await this.judgeModel.findByIdAndDelete(judgeId);
@@ -143,7 +149,14 @@ export class JudgeService {
   }
 
   async getJudgeById(id: string) {
-    return this.judgeModel.findById(id);
+    return this.judgeModel.findById(id)
+    .populate([
+      {
+        path: 'schedules',
+        select: 'roundId startupId date startTime endTime room',
+        model: 'Schedule',
+      }
+    ])
   }
 
   async getJudgeSchedules(judgeId: string, start: Date, end: Date) {
@@ -168,7 +181,6 @@ export class JudgeService {
         },
         {
           path: 'roundId',
-          select: 'name',
         },
         {
           path: 'judges.judge',

@@ -13,6 +13,7 @@ export enum Permission {
     SUBMIT_SCORES = 'submit_scores',
     VIEW_OWN_SCHEDULE = 'view_own_schedule',
     UPDATE_PROFILE = 'update_profile',
+    MANAGE_EVALUATIONS = 'manage_evaluations',
     
     // Common permissions
     VIEW_PROFILE = 'view_profile',
@@ -29,6 +30,7 @@ export enum Permission {
       Permission.UPDATE_PROFILE,
       Permission.MANAGE_STARTUPS,
       Permission.MANAGE_JUDGES,
+      Permission.MANAGE_EVALUATIONS,
     ],
     judge: [
       Permission.VIEW_SCHEDULE,
@@ -36,5 +38,6 @@ export enum Permission {
       Permission.VIEW_OWN_SCHEDULE,
       Permission.VIEW_PROFILE,
       Permission.UPDATE_PROFILE,
+      Permission.MANAGE_EVALUATIONS,
     ],
   };

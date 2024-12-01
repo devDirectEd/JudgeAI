@@ -27,6 +27,12 @@ export class JudgeController {
     private readonly spreadsheetService: SpreadsheetService,
   ) {}
 
+  @Post('schedules/evaluation/test')
+  async testEvaluation(@Body() body: any) {
+    const { judgeId, scheduleId } = body;
+    return this.judgeService.updateJudgeEvaluationStatus(judgeId, scheduleId);
+  }
+
   @Get('schedules')
   @Auth(['judge'], [Permission.VIEW_SCHEDULE])
   async getJudgeSchedules(

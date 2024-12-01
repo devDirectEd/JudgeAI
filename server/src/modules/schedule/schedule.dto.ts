@@ -72,13 +72,6 @@ export class CreateScheduleViaUploadDto {
   judges: string[];
 }
 
-export class AssignJudgesDto {
-  @IsArray()
-  @IsMongoId({ each: true })
-  @IsNotEmpty()
-  judgeIds: string[];
-}
-
 export class QueryScheduleDto {
   @IsOptional()
   @IsString()

@@ -7,7 +7,6 @@ import { ScheduleService } from './schedule.service';
 import { Startup, StartupSchema } from 'src/models/startup.schema';
 import { Round, RoundSchema } from 'src/models/round.schema';
 import { JudgeService } from '../judge/judge.service';
-import { User, UserSchema } from 'src/models/user.schema';
 import { JudgeModule } from '../judge/judge.module';
 
 @Module({
@@ -15,10 +14,10 @@ import { JudgeModule } from '../judge/judge.module';
     MongooseModule.forFeature([
       { name: Schedule.name, schema: ScheduleSchema },
       { name: Judge.name, schema: JudgeSchema },
-      { name: Startup.name, schema:StartupSchema},
-      { name: Round.name, schema:RoundSchema},
+      { name: Startup.name, schema: StartupSchema },
+      { name: Round.name, schema: RoundSchema },
     ]),
-    JudgeModule
+    JudgeModule,
   ],
   controllers: [ScheduleController],
   providers: [ScheduleService, JudgeService],
