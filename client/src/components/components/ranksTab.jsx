@@ -1,124 +1,182 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
+import { DownloadIcon, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import axiosInstance from "@/redux/axiosInstance";
 import {
-  Box,
-  Button,
-  Stack,
-  Input,
   Select,
-  Text,
-  Flex,
-} from '@chakra-ui/react';
-import { DownloadIcon } from 'lucide-react';
-import RankingsTable from './rankTable';
-import dummyData from './data';
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import RankingsTable from "./rankTable";
+import { useToast } from "@chakra-ui/react";
 
-const RankingsTab = () => {
-  const [numStartups, setNumStartups] = useState(3); // Number of startups to display (rank-based)
-  const [selectedRound, setSelectedRound] = useState(''); // Selected round
-  const [rounds, setRounds] = useState([]); // Store rounds dynamically fetched
+export default function RankingsTab() {
+  const [numStartups, setNumStartups] = useState(3);
+  const [selectedRound, setSelectedRound] = useState("");
+  const [rounds, setRounds] = useState([]);
+  const [results, setResults] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [roundsLoading, setRoundsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const toast = useToast();
 
- 
-  // Dummy data for rounds
-  const dummyRounds = ['Round 1', 'Round 2', 'Round 3', "Average"];
-
-  // Dummy data for startups (with rankings per round)
-    const dummyStartups = dummyData;
-
-  // Fetch rounds dynamically (simulate API call)
+  // Fetch rounds
   useEffect(() => {
-    const fetchRounds = async () => {
-      // Replace with API call for rounds
-      const data = dummyRounds;
-      setRounds(data);
-    };
+    async function fetchRounds() {
+      setRoundsLoading(true);
+      try {
+        const { data } = await axiosInstance.get("/rounds");
+        data.map((round) => {
+          round.id= round._id
+          return round
+        })
+        setRounds(data);
+      } catch (error) {
+        console.error("Error fetching rounds:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch rounds",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+      } finally {
+        setRoundsLoading(false)
+      }
+    }
     fetchRounds();
-  }, []);
+  }, [toast]);
 
-  // Simulate API endpoints for fetching filtered data
-// const fetchStartups = async () => {
-//   const response = await fetch(`/api/startups?round=${round}&topCount=${topCount}`);
-//   const data = await response.json();
-//   setStartups(data);
-// };
+  // Fetch results
+  async function fetchResults() {
+    if (!selectedRound) return;
+    
+    setIsLoading(true);
+    try {
+      const { data } = await axiosInstance.get("/results", {
+        params: {
+          round: selectedRound,
+          limit: numStartups
+        }
+      });
+      console.log("results", data)
+      if (data) {
+        toast({
+          title: "Success",
+          description: "Results loaded successfully",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
+        setResults(data);
+      }  
+    } catch (error) {
+      console.error("Error fetching results:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch results",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-
-  // Fetch startups based on round selection
-  const fetchStartupsByRound = (round) => {
-    const filteredStartups = dummyStartups.filter((startup) => startup.round === round);
-    return filteredStartups.slice(0, numStartups); // Slice based on the number of startups selected
-  };
-
-  const filteredStartups = selectedRound ? fetchStartupsByRound(selectedRound) : dummyStartups.slice(0, numStartups);
-
-  // Handle export functionality (will trigger export action)
-  const handleExport = () => {
-    alert('Exporting startups data...');
-    // Implement export logic (e.g., CSV download)
-  };
-
+  // Handle export
+  async function handleExport() {
+    setIsExporting(true);
+    try {
+      const { data } = await axiosInstance.get("/results/export", {
+        params: {
+          round: selectedRound,
+          limit: numStartups
+        },
+        responseType: 'blob'
+      });
+      
+      // Create blob link to download
+      const url = window.URL.createObjectURL(new Blob([data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `rankings-${selectedRound}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Error exporting results:", error);
+      toast({
+        title: "Error",
+        description: "Failed to export rankings",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   return (
-    <Box>
-      {/* Input for number of startups to display */}
-      <Flex spacing="4"  marginY="10px" justifyContent='space-between' width='full'>
-        <Stack direction="row" spacing="4"  marginY="10px" width="75%">
-            <Text className='flex justify-center items-center gap-2 p-2'> 
-              <div>
-                Get the top
-              </div>
-              <div>
-              <Input
-                placeholder="Top (number)"
-                type="number"
-                value={numStartups}
-                w={"50px"}
-                onChange={(e) => setNumStartups(Number(e.target.value))}
-                />
-              </div>
-              <div>
-                startups from round
-              </div>
-              <div>
-              <Select
-                placeholder="Select Round"
-                value={selectedRound}
-                w={"150px"}
-                onChange={(e) => setSelectedRound(e.target.value)}
-                >
-                {rounds.map((round) => (
-                    <option key={round} value={round}>
-                    {round}
-                    </option>
-                ))}
-                </Select>
-              </div>
-              <Button color="white" bg="black" onClick={() => {}}>
-                Submit
-              </Button>
-            </Text>
-            
-        </Stack>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <span>Get the top</span>
+          <Input
+            type="number"
+            value={numStartups}
+            onChange={(e) => setNumStartups(Number(e.target.value))}
+            className="w-20"
+            min={1}
+          />
+          <span>startups from round</span>
+          <Select
+            value={selectedRound}
+            onValueChange={setSelectedRound}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder={!selectedRound && 'Select a round'} />
+            </SelectTrigger>
+            <SelectContent>
+              {roundsLoading ? 
+              <SelectItem className="flex justify-center items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /></SelectItem>
+              :rounds.map((round) => (
+                <SelectItem key={round.id} value={round.id}>
+                  {round.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button 
+            onClick={fetchResults}
+            disabled={!selectedRound || isLoading}
+          >
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Submit
+          </Button>
+        </div>
 
-        {/* Export Button */}
-        <Button leftIcon={<DownloadIcon />} color="white" bg="black" mx="2" onClick={handleExport} marginY="10px">
-            Export
+        <Button
+          onClick={handleExport}
+          disabled={isExporting}
+          variant="outline"
+        >
+          {isExporting ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <DownloadIcon className="mr-2 h-4 w-4" />
+          )}
+          Export
         </Button>
+      </div>
 
-      </Flex>
-
-
-      {/* Table */}
-      <Box bg="blackAlpha.100" paddingY="8px" paddingX="10%" borderRadius="10px">
-        <RankingsTable
-          startups={filteredStartups}
-        />
-      </Box>
-
-      {/* Modal for Import */}
-
-      
-    </Box>
+      <div className="bg-secondary/10 rounded-lg p-6">
+        <RankingsTable rankings={results} loading={isLoading} />
+      </div>
+    </div>
   );
-};
-
-export default RankingsTab;
+}
