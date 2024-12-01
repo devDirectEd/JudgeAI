@@ -9,7 +9,6 @@ import { Model, Types } from 'mongoose';
 import {
   CreateScheduleDto,
   QueryScheduleDto,
-  AssignJudgesDto,
   CreateScheduleViaUploadDto,
 } from './schedule.dto';
 import { Schedule, ScheduleDocument } from 'src/models/schedule.schema';
@@ -30,24 +29,24 @@ export class ScheduleService {
 
   async create(createScheduleDto: CreateScheduleDto): Promise<Schedule> {
     // Transform judges array to new format
-    const formattedJudges = createScheduleDto.judges.map(judgeId => ({
+    const formattedJudges = createScheduleDto.judges.map((judgeId) => ({
       judge: judgeId,
-      evaluated: false
+      evaluated: false,
     }));
-    
+
     const schedule = new this.scheduleModel({
       ...createScheduleDto,
-      judges: formattedJudges
+      judges: formattedJudges,
     });
-    
+
     await schedule.save();
-    
+
     // Update to pass only judge IDs
     await this.judgeService.addAndNotifyJudgeofSchedule(
-      schedule.judges.map(judge => judge.judge.toString()),
+      schedule.judges.map((judge) => judge.judge.toString()),
       schedule._id as string,
     );
-    
+
     return schedule;
   }
 
@@ -100,6 +99,31 @@ export class ScheduleService {
       .select('-__v');
   }
 
+  async getQuestionsByScheduleId(scheduleId: string) {
+    if (!Types.ObjectId.isValid(scheduleId)) {
+      throw new BadRequestException('Invalid schedule ID');
+    }
+    const schedule = await this.scheduleModel.findById(scheduleId);
+    if (!schedule) {
+      throw new NotFoundException('Schedule not found');
+    }
+    const roundDetails = await this.roundModel.findById(schedule.roundId);
+    if (!roundDetails) {
+      throw new NotFoundException('Round not found');
+    }
+    return {
+      name: roundDetails.name,
+      scoringDetails: roundDetails.criteria.map((criterion) => {
+        return {
+          id: criterion?.['_id'],
+          title: `${criterion.question} (${criterion.weight}/100%)`,
+          weight: criterion.weight,
+          questions: criterion.sub_questions
+        };
+      }),
+    };
+  }
+
   async bulkAddSchedules(
     schedules: CreateScheduleViaUploadDto[],
   ): Promise<Schedule[]> {
@@ -116,7 +140,7 @@ export class ScheduleService {
         // Find all valid judges
         const validJudges = await this.judgeModel.find({
           entityId: {
-            $in: judges
+            $in: judges,
           },
         });
 
@@ -169,23 +193,24 @@ export class ScheduleService {
         ...result.schedule,
         roundId: round._id,
         startupId: startup._id,
-        judges: validJudges.map(judge => ({
+        judges: validJudges.map((judge) => ({
           judge: judge._id,
-          evaluated: false
+          evaluated: false,
         })),
       };
     });
 
-    const insertedSchedules = await this.scheduleModel.insertMany(transformedSchedules);
+    const insertedSchedules =
+      await this.scheduleModel.insertMany(transformedSchedules);
 
     // Update to pass only judge IDs
     for (const schedule of insertedSchedules) {
       await this.judgeService.addAndNotifyJudgeofSchedule(
-        schedule.judges.map(judge => judge.judge.toString()),
+        schedule.judges.map((judge) => judge.judge.toString()),
         schedule._id as string,
       );
     }
-    
+
     return insertedSchedules.map((schedule) => schedule.toObject() as Schedule);
   }
 }

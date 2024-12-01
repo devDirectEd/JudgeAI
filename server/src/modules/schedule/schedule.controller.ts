@@ -13,7 +13,6 @@ import { ScheduleService } from './schedule.service';
 import {
   CreateScheduleDto,
   QueryScheduleDto,
-  AssignJudgesDto,
   DateRangeDto,
 } from './schedule.dto';
 import { SpreadsheetUrlDto } from 'src/common/dto';
@@ -56,6 +55,12 @@ export class ScheduleController {
   @HttpCode(HttpStatus.CREATED)
   async createSchedule(@Body() createScheduleDto: CreateScheduleDto) {
     return this.scheduleService.create(createScheduleDto);
+  }
+
+  @Get(':scheduleId/questions')
+  @Auth(['judge'], [Permission.VIEW_OWN_SCHEDULE])
+  async getQuestionsByScheduleId(@Param('scheduleId') scheduleId: string) {
+    return this.scheduleService.getQuestionsByScheduleId(scheduleId);
   }
 
   @Post('import')

@@ -4,17 +4,11 @@ import { Document, Types } from 'mongoose';
 @Schema()
 class Question {
   @Prop()
-  id: string;
-
-  @Prop()
   question: string;
 }
 
 @Schema()
 class Criteria {
-  @Prop()
-  id: string;
-
   @Prop()
   question: string;
 

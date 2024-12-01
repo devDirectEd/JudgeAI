@@ -17,6 +17,7 @@ import { JwtAuthGuard } from './common/guards/auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { ResultsModule } from './modules/results/results.module';
+import { EvaluationModule } from './modules/evaluation/evaluation.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { ResultsModule } from './modules/results/results.module';
     StartupModule,
     SpreadsheetModule,
     ResultsModule,
+    EvaluationModule,
   ],
   controllers: [AppController],
   providers: [

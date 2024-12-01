@@ -163,8 +163,8 @@ const ScheduleTab = () => {
   const formatJudgeNames = (judges) => {
     if (!Array.isArray(judges)) return '';
     return judges
-      .filter(judge => judge && judge.firstname && judge.lastname)
-      .map(judge => `${judge.firstname} ${judge.lastname}`)
+      .filter(({judge}) => judge && judge.firstname && judge.lastname)
+      .map(({judge}) => `${judge.firstname} ${judge.lastname}`)
       .join(", ");
   };
 
