@@ -2,13 +2,19 @@ import {
   Injectable,
   ConflictException,
   BadRequestException,
+  HttpException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, SortOrder, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { CreateJudgeDto } from './judge.dto';
 import { Judge, JudgeDocument } from 'src/models/judge.schema';
-import { generateRandomPassword } from 'src/common/utils';
+import {
+  convertToCSV,
+  ExportFieldHeader,
+  ExportResult,
+  generateRandomPassword,
+} from 'src/common/utils';
 import { User, UserDocument } from 'src/models/user.schema';
 import { UserRole } from 'src/types/auth.types';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -92,7 +98,9 @@ export class JudgeService {
   async addAndNotifyJudgeofSchedule(judgeIds: string[], scheduleId: string) {
     const judges = await this.judgeModel.find({ _id: { $in: judgeIds } });
     if (!judges || judges.length === 0 || judges.length !== judgeIds.length) {
-      throw new BadRequestException('An error occured while linking judges to their schedules');
+      throw new BadRequestException(
+        'An error occured while linking judges to their schedules',
+      );
     }
     const schedule = await this.scheduleModel.findById(scheduleId);
     if (!schedule) {
@@ -149,24 +157,23 @@ export class JudgeService {
   }
 
   async getJudgeById(id: string) {
-    return this.judgeModel.findById(id)
-    .populate([
+    return this.judgeModel.findById(id).populate([
       {
         path: 'schedules',
         select: 'roundId startupId date startTime endTime room',
         model: 'Schedule',
-      }
-    ])
+      },
+    ]);
   }
 
   async getJudgeSchedules(judgeId: string, start: Date, end: Date) {
     if (!Types.ObjectId.isValid(judgeId)) {
       throw new BadRequestException('Invalid judge ID format');
     }
-    
+
     return this.scheduleModel
       .find({
-        'judges.judge': new Types.ObjectId(judgeId), 
+        'judges.judge': new Types.ObjectId(judgeId),
         'judges.evaluated': false,
         date: {
           $gte: start,
@@ -217,5 +224,46 @@ export class JudgeService {
       email: judge.email,
       expertise: judge.expertise,
     }));
+  }
+
+  async bulkExportJudges(
+    format: 'csv' | 'json' | 'both' = 'both',
+  ): Promise<ExportResult | string | Judge[]> {
+    try {
+      const judges = await this.judgeModel.find().lean().exec();
+      const fields: ExportFieldHeader[] = [
+        {
+          label: 'First Name',
+          value: 'firstname',
+        },
+        {
+          label: 'Last Name',
+          value: 'lastname',
+        },
+        {
+          label: 'Email',
+          value: 'email',
+        },
+        {
+          label: 'Expertise',
+          value: 'expertise',
+        },
+      ];
+
+      if (format === 'json') {
+        return judges;
+      }
+
+      if (format === 'csv') {
+        return convertToCSV({ fields, data: judges });
+      }
+
+      return {
+        csv: convertToCSV({ fields, data: judges }),
+        json: judges,
+      };
+    } catch (error) {
+      throw new HttpException(`Error exporting judges: ${error.message}`, 500);
+    }
   }
 }

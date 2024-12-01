@@ -5,11 +5,11 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
   HttpCode,
   HttpStatus,
   Put,
   Delete,
+  Response,
 } from '@nestjs/common';
 import { StartupService } from './startup.service';
 import { CreateStartupDto, QueryStartupDto } from './startup.dto';
@@ -17,7 +17,7 @@ import { SpreadsheetUrlDto } from 'src/common/dto';
 import { SpreadsheetService } from 'src/services/spreadsheet/spreadsheet.service';
 import { Auth } from 'src/common/decorators/role.decorators';
 import { Permission } from 'src/types/permission.types';
-
+import { Response as ExpressResponse } from 'express';
 @Controller('startups')
 export class StartupController {
   constructor(
@@ -29,6 +29,24 @@ export class StartupController {
   @Auth(['admin'], [Permission.MANAGE_STARTUPS])
   async listAllStartups(@Query() query: QueryStartupDto) {
     return this.startupService.listStartups(query);
+  }
+
+  @Get('export')
+  @Auth(['admin'], [Permission.MANAGE_STARTUPS])
+  async exportStartups(
+    @Query('format') format: 'csv' | 'json' | 'both' = 'csv',
+    @Response() res: ExpressResponse,
+  ) {
+    const result = await this.startupService.bulkExportStartups(format);
+
+    if (format === 'csv') {
+      res.header('Content-Type', 'text/csv');
+      res.header('Content-Disposition', 'attachment; filename=startups.csv');
+      return res.send(result);
+    }
+
+    res.header('Content-Type', 'application/json');
+    return res.json(result);
   }
 
   @Get(':id')
@@ -69,4 +87,6 @@ export class StartupController {
       throw error;
     }
   }
+
+  
 }

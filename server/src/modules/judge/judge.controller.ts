@@ -11,6 +11,7 @@ import {
   Delete,
   Request,
   BadRequestException,
+  Response,
 } from '@nestjs/common';
 import { JudgeService } from './judge.service';
 import { SpreadsheetService } from 'src/services/spreadsheet/spreadsheet.service';
@@ -18,7 +19,7 @@ import { SpreadsheetUrlDto } from 'src/common/dto';
 import { Auth } from 'src/common/decorators/role.decorators';
 import { Permission } from 'src/types/permission.types';
 import { CreateJudgeDto } from './judge.dto';
-import { Request as ExpressRequest } from 'express';
+import { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 
 @Controller('judges')
 export class JudgeController {
@@ -61,6 +62,24 @@ export class JudgeController {
     throw new BadRequestException(
       'Either self or id query parameter is required',
     );
+  }
+
+  @Get('export')
+  @Auth(['admin'], [Permission.MANAGE_JUDGES])
+  async bulkExportJudges(
+    @Query('format') format: 'csv' | 'json' | 'both' = 'csv',
+    @Response() res: ExpressResponse,
+  ) {
+    const result = await this.judgeService.bulkExportJudges(format);
+
+    if (format === 'csv') {
+      res.header('Content-Type', 'text/csv');
+      res.header('Content-Disposition', 'attachment; filename=judges.csv');
+      return res.send(result);
+    }
+
+    res.header('Content-Type', 'application/json');
+    return res.json(result);
   }
 
   @Get()
@@ -111,4 +130,6 @@ export class JudgeController {
       throw error;
     }
   }
+
+  
 }
