@@ -42,6 +42,7 @@ const JudgesTab = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Fetch judges on component mount
@@ -82,6 +83,33 @@ const JudgesTab = () => {
       [name]: value
     }));
   };
+
+  const handleExportJudges = async () => {
+    try {
+      setIsExporting(true);
+      const response = await axiosInstance.get("/judges/export", {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `judges-${new Date().toISOString()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      setIsExporting(false);
+    } catch (error) {
+      console.error("Error exporting judges:", error);
+      setIsExporting(false);
+      toast({
+        title: "Error",
+        description: "Failed to export judges",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
 
   const validateForm = () => {
     const requiredFields = ['firstname', 'lastname', 'email', 'expertise', 'entityId'];
@@ -233,8 +261,10 @@ const JudgesTab = () => {
           </Button>
           <Button
             variant="outline"
-            className="bg-[#E4E4E7] text-[#18181B] border-[#18181B] hover:bg-[#F4F4F5]"
-            disabled={isLoading}
+            className="bg-[#E4E4E7] text-[rgb(24,24,27)] border-[#18181B] hover:bg-[#F4F4F5]"
+            disabled={isExporting || isLoading}
+            isLoading={isExporting}
+            onClick={handleExportJudges}            
           >
             <UploadIcon className="mr-2 h-4 w-4" />
             Export

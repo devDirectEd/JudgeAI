@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import {
   Button,
   Modal,
@@ -12,30 +12,31 @@ import {
   InputGroup,
   Spinner,
   useToast,
-} from '@chakra-ui/react';
-import { AddIcon, SearchIcon } from '@chakra-ui/icons';
-import StartupTable from './startupsTable';
-import { DownloadIcon, UploadIcon } from 'lucide-react';
-import { StartupSpreadsheetLinkCard } from '../components/importFromSpreadsheet';
-import axiosInstance from '@/redux/axiosInstance';
+} from "@chakra-ui/react";
+import { AddIcon, SearchIcon } from "@chakra-ui/icons";
+import StartupTable from "./startupsTable";
+import { DownloadIcon, UploadIcon } from "lucide-react";
+import { StartupSpreadsheetLinkCard } from "../components/importFromSpreadsheet";
+import axiosInstance from "@/redux/axiosInstance";
 
 const StartupsTab = () => {
   const toast = useToast();
   const [startups, setStartups] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [modalData, setModalData] = useState({
-    name: '',
-    category: '',
-    teamLeader: '',
-    email: '',
-    _id: '',
+    name: "",
+    category: "",
+    teamLeader: "",
+    email: "",
+    _id: "",
     judgeIds: [],
     feedback: [],
-    results: []
+    results: [],
   });
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
@@ -46,7 +47,7 @@ const StartupsTab = () => {
   const fetchStartups = async () => {
     setIsLoading(true);
     try {
-      const response = await axiosInstance.get('/startups');
+      const response = await axiosInstance.get("/startups");
       setStartups(response.data);
       toast({
         title: "Success",
@@ -56,7 +57,7 @@ const StartupsTab = () => {
         isClosable: true,
       });
     } catch (error) {
-      console.error('Error fetching startups:', error);
+      console.error("Error fetching startups:", error);
       toast({
         title: "Error",
         description: "Failed to load startups",
@@ -70,7 +71,12 @@ const StartupsTab = () => {
   };
 
   const handleSaveStartup = async () => {
-    if (!modalData.name || !modalData.category || !modalData.teamLeader || !modalData.email) {
+    if (
+      !modalData.name ||
+      !modalData.category ||
+      !modalData.teamLeader ||
+      !modalData.email
+    ) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields",
@@ -85,9 +91,11 @@ const StartupsTab = () => {
     try {
       if (modalData._id) {
         await axiosInstance.put(`/startups/${modalData._id}`, modalData);
-        setStartups(prev => 
-          prev.map(startup => 
-            startup._id === modalData._id ? { ...startup, ...modalData } : startup
+        setStartups((prev) =>
+          prev.map((startup) =>
+            startup._id === modalData._id
+              ? { ...startup, ...modalData }
+              : startup
           )
         );
         toast({
@@ -98,8 +106,8 @@ const StartupsTab = () => {
           isClosable: true,
         });
       } else {
-        const response = await axiosInstance.post('/startups', modalData);
-        setStartups(prev => [...prev, response.data]);
+        const response = await axiosInstance.post("/startups", modalData);
+        setStartups((prev) => [...prev, response.data]);
         toast({
           title: "Success",
           description: "New startup added successfully",
@@ -110,13 +118,13 @@ const StartupsTab = () => {
       }
       setIsModalOpen(false);
       setModalData({
-        name: '',
-        category: '',
-        teamLeader: '',
-        email: '',
+        name: "",
+        category: "",
+        teamLeader: "",
+        email: "",
         judgeIds: [],
         feedback: [],
-        results: []
+        results: [],
       });
     } catch (error) {
       toast({
@@ -131,13 +139,41 @@ const StartupsTab = () => {
     }
   };
 
+  const handleExportStartups = async () => {
+    try {
+      setIsExporting(true);
+      const response = await axiosInstance.get("/startups/export", {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `startups-${new Date().toISOString()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      setIsExporting(false);
+    } catch (error) {
+      console.error("Error exporting startups:", error);
+      setIsExporting(false);
+      toast({
+        title: "Error",
+        description: "Failed to export startups",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
   const handleDeleteStartup = async (id) => {
-    const confirmDelete = window.confirm('Are you sure you want to delete this startup?');
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this startup?"
+    );
     if (confirmDelete) {
       setIsDeleting(true);
       try {
         await axiosInstance.delete(`/startups/${id}`);
-        setStartups(prev => prev.filter(startup => startup._id !== id));
+        setStartups((prev) => prev.filter((startup) => startup._id !== id));
         toast({
           title: "Success",
           description: "Startup deleted successfully",
@@ -146,7 +182,7 @@ const StartupsTab = () => {
           isClosable: true,
         });
       } catch (error) {
-        console.log(error)
+        console.log(error);
         toast({
           title: "Error",
           description: "Failed to delete startup",
@@ -166,23 +202,24 @@ const StartupsTab = () => {
       setModalData(startup);
     } else {
       setModalData({
-        name: '',
-        category: '',
-        teamLeader: '',
-        email: '',
+        name: "",
+        category: "",
+        teamLeader: "",
+        email: "",
         judgeIds: [],
         feedback: [],
-        results: []
+        results: [],
       });
     }
     setIsModalOpen(true);
   };
 
-  const filteredStartups = startups.filter(startup =>
-    startup.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    startup.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    startup.teamLeader.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    startup.email.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredStartups = startups.filter(
+    (startup) =>
+      startup.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      startup.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      startup.teamLeader.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      startup.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -232,7 +269,9 @@ const StartupsTab = () => {
             variant="outline"
             borderColor="#18181B"
             _hover={{ bg: "#F4F4F5" }}
-            isDisabled={isLoading}
+            isDisabled={isExporting || isLoading}
+            isLoading={isExporting}
+            onClick={handleExportStartups}
           >
             Export
           </Button>
@@ -257,58 +296,73 @@ const StartupsTab = () => {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>{modalData._id ? 'Edit Startup' : 'Add Startup'}</ModalHeader>
+          <ModalHeader>
+            {modalData._id ? "Edit Startup" : "Add Startup"}
+          </ModalHeader>
           <ModalBody>
             <div className="space-y-4">
               <Input
                 placeholder="Startup Name"
                 value={modalData.name}
-                onChange={(e) => setModalData({ ...modalData, name: e.target.value })}
+                onChange={(e) =>
+                  setModalData({ ...modalData, name: e.target.value })
+                }
                 isDisabled={isSaving}
               />
               <Input
                 placeholder="Category"
                 value={modalData.category}
-                onChange={(e) => setModalData({ ...modalData, category: e.target.value })}
+                onChange={(e) =>
+                  setModalData({ ...modalData, category: e.target.value })
+                }
                 isDisabled={isSaving}
               />
               <Input
                 placeholder="Team Leader"
                 value={modalData.teamLeader}
-                onChange={(e) => setModalData({ ...modalData, teamLeader: e.target.value })}
+                onChange={(e) =>
+                  setModalData({ ...modalData, teamLeader: e.target.value })
+                }
                 isDisabled={isSaving}
               />
               <Input
                 placeholder="Email"
                 value={modalData.email}
-                onChange={(e) => setModalData({ ...modalData, email: e.target.value })}
+                onChange={(e) =>
+                  setModalData({ ...modalData, email: e.target.value })
+                }
                 isDisabled={isSaving}
               />
             </div>
           </ModalBody>
           <ModalFooter>
-            <Button 
-              colorScheme="blue" 
-              mr={3} 
+            <Button
+              colorScheme="blue"
+              mr={3}
               onClick={handleSaveStartup}
               isLoading={isSaving}
               loadingText="Saving..."
             >
               Save
             </Button>
-            <Button onClick={() => setIsModalOpen(false)} isDisabled={isSaving}>Cancel</Button>
+            <Button onClick={() => setIsModalOpen(false)} isDisabled={isSaving}>
+              Cancel
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
 
-      <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)}>
+      <Modal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+      >
         <ModalOverlay />
         <ModalContent>
           <StartupSpreadsheetLinkCard
-            onClose={() => setIsImportModalOpen(false)} 
+            onClose={() => setIsImportModalOpen(false)}
             onSuccess={fetchStartups}
-            templateUrl="https://docs.google.com/spreadsheets/d/1lD4YvAWGunflLfN4iGxtJWtt5NB-G6YqsvUmz_OnR6k/edit?usp=sharing" 
-            descriptionText="To import a list of startups, enter in a link to the spreadsheet with their details." 
+            templateUrl="https://docs.google.com/spreadsheets/d/1lD4YvAWGunflLfN4iGxtJWtt5NB-G6YqsvUmz_OnR6k/edit?usp=sharing"
+            descriptionText="To import a list of startups, enter in a link to the spreadsheet with their details."
           />
         </ModalContent>
       </Modal>
