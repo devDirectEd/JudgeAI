@@ -20,6 +20,7 @@ import { UserRole } from 'src/types/auth.types';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Schedule } from 'src/models/schedule.schema';
 import { welcomeJudgeEmailTemplate } from '../notifications/templates/email.templates';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class JudgeService {
@@ -52,7 +53,7 @@ export class JudgeService {
         lastname: createJudgeDto.lastname,
         email: createJudgeDto.email,
         expertise: createJudgeDto.expertise,
-        entityId: createJudgeDto?.entityId || null,
+        entityId: createJudgeDto?.entityId || randomUUID(),
       });
       const savedJudge = await judge.save({ session });
 

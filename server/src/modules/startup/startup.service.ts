@@ -10,6 +10,7 @@ import { Startup, StartupDocument } from 'src/models/startup.schema';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateStartupDto, QueryStartupDto } from './startup.dto';
 import { convertToCSV, ExportFieldHeader, ExportResult } from 'src/common/utils';
+import { randomUUID } from 'crypto';
 
 
 
@@ -19,10 +20,17 @@ export class StartupService {
     @InjectModel(Startup.name) private startupModel: Model<StartupDocument>,
     private notificationsService: NotificationsService,
   ) {}
-
   async registerStartup(createStartupDto: CreateStartupDto): Promise<Startup> {
     try {
-      const startup = new this.startupModel(createStartupDto);
+      let startupID: string;
+      let existing: Startup | null;
+      
+      do {
+        startupID = randomUUID();
+        existing = await this.startupModel.findOne({ startupID });
+      } while (existing);
+  
+      const startup = new this.startupModel({ startupID, ...createStartupDto });
       await startup.save();
       // await this.notificationsService.sendWelcomeEmail(startup.email, startup.name);
       return startup;
@@ -33,6 +41,7 @@ export class StartupService {
       throw error;
     }
   }
+  
   async updateStartup(
     id: string,
     updateStartupDto: CreateStartupDto,
