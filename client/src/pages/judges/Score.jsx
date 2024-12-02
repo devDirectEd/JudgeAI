@@ -598,6 +598,9 @@ const handleSubmit = async () => {
                             />
                         </div>
                     </article>
+                    <article className="my-5">
+                      <p className="text-center text-white/70">Please complete all fields when answering. Use 😶 for the lowest rating (1) and 🤩 for the highest (5).</p>
+                    </article>
                     <div className="space-y-4 border-0 bg-[#404040] p-6 rounded-lg">
                     <Accordion 
                       type="single" 
