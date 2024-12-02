@@ -15,7 +15,7 @@ export class Schedule {
     required: true,
     validate: {
       validator: function (v: Date) {
-        return v >= new Date();
+        return v.setHours(0,0,0,0) >= new Date().setHours(0,0,0,0);
       },
       message: 'Date cannot be in the past',
     },
