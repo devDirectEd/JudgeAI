@@ -17,7 +17,6 @@ export class EvaluationService {
     @InjectModel(Schedule.name) private readonly scheduleModel: Model<Schedule>,
     private judgeService: JudgeService,
   ) {}
-  logger = new Logger('EvaluationService');
 
   async getPastEvaluations(judgeId: string): Promise<Evaluation[]> {
     return this.evaluationModel.find({ judgeId }).exec();
@@ -27,7 +26,6 @@ export class EvaluationService {
     evaluation: CreateEvaluationDto,
     scheduleId: string,
   ): Promise<Evaluation> {
-    this.logger.log({ evaluation, scheduleId });
 
     const schedule = await this.scheduleModel.findById(scheduleId).exec();
     if (!schedule) {

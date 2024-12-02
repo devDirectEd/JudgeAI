@@ -51,7 +51,7 @@ export class CreateScheduleViaUploadDto {
   @IsDate()
   @Type(() => Date)
   @IsNotEmpty()
-  date: Date;
+  date: string;
 
   @IsString()
   @IsNotEmpty()

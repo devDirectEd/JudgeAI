@@ -13,16 +13,16 @@ export class Schedule {
 
   @Prop({
     required: true,
-    validate: {
-      validator: function (v: Date) {
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        const inputDate = new Date(v);
-        inputDate.setHours(0,0,0,0);
-        return inputDate >= today;
-      },
-      message: 'Date cannot be in the past',
-    },
+    // validate: {
+    //   validator: function (v: Date) {
+    //     const today = new Date();
+    //     today.setHours(0,0,0,0);
+    //     const inputDate = new Date(v);
+    //     inputDate.setHours(0,0,0,0);
+    //     return inputDate >= today;
+    //   },
+    //   message: 'Date cannot be in the past',
+    // },
   })
   date: Date;
 
