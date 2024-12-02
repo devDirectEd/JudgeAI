@@ -54,7 +54,15 @@ const JudgesTab = () => {
     setIsLoading(true);
     try {
       const response = await axiosInstance.get("/judges");
-      setJudges(Array.isArray(response.data) ? response.data : []);
+      // Filter out password field from each judge object
+      const judgesWithoutPasswords = Array.isArray(response.data) 
+        ? response.data.map(judge => {
+            // eslint-disable-next-line no-unused-vars
+            const { password, ...judgeWithoutPassword } = judge;
+            return judgeWithoutPassword;
+          })
+        : [];
+      setJudges(judgesWithoutPasswords);
       toast({
         title: "Success",
         description: "Judges loaded successfully",
