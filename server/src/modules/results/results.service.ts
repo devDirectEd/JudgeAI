@@ -620,13 +620,13 @@ export class ResultsService {
         { label: 'Startup Rank', value: 'rank' },
         {
           label: 'Startup ID',
-          value: (row) => row.startupId?.['_id'].toString(),
+          value: (row) => row.startupId?.['_id'].toString() || 'Unknown',
         },
         { label: 'Startup Name', value: 'startupName' },
         { label: 'Judge ID', value: (row) => row.judgeId?.toString() },
         {
           label: 'Overall Judge Score',
-          value: (row) => (row.totalScore * 10).toFixed(1),
+          value: (row) => (row.totalScore).toFixed(1),
         },
         {
           label: 'Startup Overall Score(Avg)',

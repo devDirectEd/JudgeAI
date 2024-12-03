@@ -18,22 +18,19 @@ export class EvaluationService {
   ) {}
 
   async getPastEvaluations(judgeId: string): Promise<Evaluation[]> {
-    return this.evaluationModel
-      .find({ judgeId })
-      .populate([
-        {
-          path: 'startupId',
-          select: 'name',
-        },
-      ])
-      .lean()
-      .exec();
+    return this.evaluationModel.find({ judgeId })
+    .populate([{
+      path: 'startupId',
+      select: 'name'
+    }])
+    .lean().exec();
   }
 
   async addEvaluation(
     evaluation: CreateEvaluationDto,
     scheduleId: string,
   ): Promise<Evaluation> {
+
     const schedule = await this.scheduleModel.findById(scheduleId).exec();
     if (!schedule) {
       throw new Error('Error linking evaluation to schedule');
@@ -50,14 +47,14 @@ export class EvaluationService {
 
     // since the evaluation is done for this schedule, we can update the schedule to reflect that
     await this.judgeService.updateJudgeEvaluationStatus(
-      scheduleId,
       evaluation.judgeId,
+      scheduleId,
     );
 
     //remove scheduleId from schedules array in judge
     await this.judgeModel.updateOne(
       { _id: evaluation.judgeId },
-      { $pull: { schedules: new Types.ObjectId(scheduleId) } },
+      { $pull: { schedules: new Types.ObjectId(scheduleId) } }
     );
 
     return createdEvaluation;
@@ -84,6 +81,7 @@ export class EvaluationService {
       .findById(evaluationId)
       .lean()
       .exec();
+
 
     if (!existingEvaluation) {
       throw new Error('Evaluation not found');

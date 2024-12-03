@@ -142,7 +142,7 @@ export class JudgeService {
   }
   async updateJudgeEvaluationStatus(judgeId: string, scheduleId: string) {
     return await this.scheduleModel.updateOne(
-      { _id: scheduleId, 'judges.judge': judgeId },
+      { _id: new Types.ObjectId(scheduleId), 'judges.judge': new Types.ObjectId(judgeId) },
       { $set: { 'judges.$.evaluated': true } },
     );
   }
@@ -171,33 +171,38 @@ export class JudgeService {
     if (!Types.ObjectId.isValid(judgeId)) {
       throw new BadRequestException('Invalid judge ID format');
     }
+    console.log('Getting schedules for judge', judgeId);
+const data=await this.scheduleModel
+.find({
+  'judges.judge': new Types.ObjectId(judgeId),
+  'judges.evaluated': false,
+  date: {
+    $gte: start,
+    $lte: end,
+  },
+})
+.select('roundId startupId date startTime endTime room judges')
+.populate([
+  {
+    path: 'startupId',
+    select: 'name',
+  },
+  {
+    path: 'roundId',
+  },
+  {
+    path: 'judges.judge',
+    select: 'firstname lastname email',
+    model: 'Judge',
+  },
+])
+.lean()
+.exec();
 
-    return this.scheduleModel
-      .find({
-        'judges.judge': new Types.ObjectId(judgeId),
-        'judges.evaluated': false,
-        date: {
-          $gte: start,
-          $lte: end,
-        },
-      })
-      .select('roundId startupId date startTime endTime room judges')
-      .populate([
-        {
-          path: 'startupId',
-          select: 'name',
-        },
-        {
-          path: 'roundId',
-        },
-        {
-          path: 'judges.judge',
-          select: 'firstname lastname email',
-          model: 'Judge',
-        },
-      ])
-      .lean()
-      .exec();
+// const invalidData=data.filter((schedule)=>{
+
+// })
+    return data
   }
 
   async bulkRegisterJudges(judges: CreateJudgeDto[]) {
