@@ -34,9 +34,7 @@ const StartupsTab = () => {
     teamLeader: "",
     email: "",
     _id: "",
-    judgeIds: [],
-    feedback: [],
-    results: [],
+    startupID: "",
   });
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
@@ -48,6 +46,7 @@ const StartupsTab = () => {
     setIsLoading(true);
     try {
       const response = await axiosInstance.get("/startups");
+      console.log("startups", response.data)
       setStartups(response.data);
       toast({
         title: "Success",
@@ -330,6 +329,14 @@ const StartupsTab = () => {
                 value={modalData.email}
                 onChange={(e) =>
                   setModalData({ ...modalData, email: e.target.value })
+                }
+                isDisabled={isSaving}
+              />
+              <Input
+                placeholder="custon startup ID"
+                value={modalData.startupID}
+                onChange={(e) =>
+                  setModalData({ ...modalData, startupID: e.target.value })
                 }
                 isDisabled={isSaving}
               />
