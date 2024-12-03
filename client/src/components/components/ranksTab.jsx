@@ -91,7 +91,7 @@ export default function RankingsTab() {
   async function handleExport() {
     setIsExporting(true);
     try {
-      const { data } = await axiosInstance.get("/results/export", {
+      const { data } = await axiosInstance.get("/results/export/raw", {
         params: {
           round: selectedRound,
           limit: numStartups

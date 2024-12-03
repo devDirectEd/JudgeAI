@@ -1,14 +1,19 @@
-import { Injectable, HttpException } from '@nestjs/common';
+import { Injectable, HttpException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { Evaluation } from 'src/models/evaluation.schema';
 import { firstValueFrom } from 'rxjs';
 import * as JSZip from 'jszip';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model, ObjectId, Types } from 'mongoose';
 import { Round } from 'src/models/round.schema';
 import { Startup } from 'src/models/startup.schema';
+import { convertToCSV, ExportFieldHeader } from 'src/common/utils';
 
+interface EvaluationCsvFields {
+  comprehensive: ExportFieldHeader[];
+  summary: ExportFieldHeader[];
+}
 interface StartupRanking {
   startupId: string;
   startupName: string;
@@ -92,6 +97,8 @@ export class ResultsService {
     @InjectModel(Round.name) private roundModel: Model<Round>,
     @InjectModel(Startup.name) private startupModel: Model<Startup>,
   ) {}
+
+  logger: Logger = new Logger('ResultsService');
 
   private aiEndpoints() {
     const AI_BASE_URL = this.configService.get('AI_ENDPOINT');
@@ -301,91 +308,26 @@ export class ResultsService {
     }
   }
 
-  // private async aggregateStartupRankings(
-  //   rankings: RankingResponse['rankings'],
-  // ): Promise<AggregatedRankings> {
-  //   const startupMap = new Map<string, StartupRanking>();
-
-  //   rankings.forEach(async (ranking) => {
-  //     const startupId = ranking['Startup ID'];
-  //     const relatedStartup = await this.startupModel
-  //       .findById(startupId)
-  //       .select('name');
-  //     if (!startupMap.has(startupId)) {
-  //       startupMap.set(startupId, {
-  //         startupId: relatedStartup?.name || startupId,
-  //         judgeId: ranking['Judge ID'],
-  //         overallScore: ranking['Overall Score'],
-  //         overallFeedback: ranking['Overall Feedback'],
-  //         roundScores: [],
-  //       });
-  //     }
-
-  //     const startup = startupMap.get(startupId)!;
-  //     const roundId = ranking['Round ID'];
-
-  //     let roundScore = startup.roundScores.find((r) => r.roundId === roundId);
-  //     if (!roundScore) {
-  //       roundScore = {
-  //         roundId,
-  //         average: ranking['Round Average'],
-  //         feedback: ranking['Round Feedback'],
-  //         questions: [],
-  //       };
-  //       startup.roundScores.push(roundScore);
-  //     }
-
-  //     roundScore.questions.push({
-  //       question: ranking.Question,
-  //       score: ranking.Score,
-  //       skipped: ranking.Skipped,
-  //     });
-  //   });
-
-  //   const sortedRankings = Array.from(startupMap.values()).sort(
-  //     (a, b) => b.overallScore - a.overallScore,
-  //   );
-
-  //   const groupedRankings = sortedRankings.reduce(
-  //     (acc, ranking) => {
-  //       acc[ranking.startupId] = ranking;
-  //       return acc;
-  //     },
-  //     {} as Record<string, StartupRanking>,
-  //   );
-
-  //   const averageScore =
-  //     sortedRankings.reduce((sum, r) => sum + r.overallScore, 0) /
-  //     sortedRankings.length;
-
-  //   return {
-  //     rankings: sortedRankings,
-  //     groupedRankings,
-  //     summary: {
-  //       totalEvaluations: rankings.length / Object.keys(groupedRankings).length,
-  //       totalStartups: sortedRankings.length,
-  //       averageScore,
-  //     },
-  //   };
-  // }
   private async aggregateStartupRankings(
     rankings: RankingResponse['rankings'],
   ): Promise<AggregatedRankings> {
-    const startupIds = [...new Set(rankings.map(r => r['Startup ID']))];
-    const judgeIds = [...new Set(rankings.map(r => r['Judge ID']))];
-  
+    const startupIds = [...new Set(rankings.map((r) => r['Startup ID']))];
+
     const [startups] = await Promise.all([
-      this.startupModel.find({ _id: { $in: startupIds } }).lean().exec()
+      this.startupModel
+        .find({ _id: { $in: startupIds } })
+        .lean()
+        .exec(),
     ]);
-  
-    const startupMap = new Map(startups.map(s => [s['_id'].toString(), s]));
-  
+
+    const startupMap = new Map(startups.map((s) => [s['_id'].toString(), s]));
+
     const rankingsByStartup = new Map<string, StartupRanking>();
-  
-    rankings.forEach(ranking => {
+
+    rankings.forEach((ranking) => {
       const startupId = ranking['Startup ID'];
-      const startup = startupMap.get(startupId) as unknown as Startup
-  
+      const startup = startupMap.get(startupId) as unknown as Startup;
+
       if (!rankingsByStartup.has(startupId)) {
         rankingsByStartup.set(startupId, {
           startupId,
@@ -397,41 +339,49 @@ export class ResultsService {
           judgeId: ranking['Judge ID'],
           overallScore: ranking['Overall Score'],
           overallFeedback: ranking['Overall Feedback'],
-          roundScores: []
+          roundScores: [],
         });
       }
-  
+
       const startupRanking = rankingsByStartup.get(startupId)!;
       const roundId = ranking['Round ID'];
-  
-      let roundScore = startupRanking.roundScores.find(r => r.roundId === roundId);
+
+      let roundScore = startupRanking.roundScores.find(
+        (r) => r.roundId === roundId,
+      );
       if (!roundScore) {
         roundScore = {
           roundId,
           average: ranking['Round Average'],
           feedback: ranking['Round Feedback'],
-          questions: []
+          questions: [],
         };
         startupRanking.roundScores.push(roundScore);
       }
-  
+
       roundScore.questions.push({
         question: ranking.Question,
         score: ranking.Score,
-        skipped: ranking.Skipped
+        skipped: ranking.Skipped,
       });
     });
-  
-    const sortedRankings = Array.from(rankingsByStartup.values())
-      .sort((a, b) => b.overallScore - a.overallScore);
-  
-    const groupedRankings = sortedRankings.reduce((acc, ranking) => {
-      acc[ranking.startupId] = ranking;
-      return acc;
-    }, {} as Record<string, StartupRanking>);
-  
-    const averageScore = sortedRankings.reduce((sum, r) => sum + r.overallScore, 0) / sortedRankings.length;
-  
+
+    const sortedRankings = Array.from(rankingsByStartup.values()).sort(
+      (a, b) => b.overallScore - a.overallScore,
+    );
+
+    const groupedRankings = sortedRankings.reduce(
+      (acc, ranking) => {
+        acc[ranking.startupId] = ranking;
+        return acc;
+      },
+      {} as Record<string, StartupRanking>,
+    );
+
+    const averageScore =
+      sortedRankings.reduce((sum, r) => sum + r.overallScore, 0) /
+      sortedRankings.length;
+
     return {
       rankings: sortedRankings,
       groupedRankings,
@@ -439,10 +389,9 @@ export class ResultsService {
         totalEvaluations: rankings.length / startupIds.length,
         totalStartups: sortedRankings.length,
         averageScore,
-      }
+      },
     };
   }
-  
 
   private async fetchRankings(evaluations: Evaluation[]) {
     try {
@@ -609,5 +558,287 @@ export class ResultsService {
         },
       ),
     };
+  }
+
+  async getRawResults({
+    round,
+    startups,
+  }: {
+    round: string;
+    startups: number;
+  }): Promise<Evaluation[]> {
+    if (!Types.ObjectId.isValid(round)) {
+      throw new HttpException('Invalid round ID format', 400);
+    }
+    return await this.evaluationModel
+      .find({
+        roundId: round,
+      })
+      .populate([
+        {
+          path: 'startupId',
+          select: 'name',
+        },
+        {
+          path: 'roundId',
+        },
+      ])
+      .lean()
+      .exec();
+  }
+
+  private getEvaluationCsvFields(roundData: Round): EvaluationCsvFields {
+    const SECTIONS = roundData.criteria.reduce(
+      (acc, criterion) => {
+        const trimmedQuestion = criterion.question
+          .toLowerCase()
+          .trim()
+          .replace(/[\s\/]+/g, '-')
+          .replace(/-+/g, '-');
+        acc[trimmedQuestion] = trimmedQuestion;
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
+
+    const CRITERIA = roundData.criteria.reduce(
+      (acc, criterion) => {
+        const trimmedQuestion = criterion.question
+          .toLowerCase()
+          .trim()
+          .replace(/[\s\/]+/g, '-')
+          .replace(/-+/g, '-');
+
+        acc[trimmedQuestion] = criterion.sub_questions;
+        return acc;
+      },
+      {} as Record<string, {}>,
+    );
+
+    return {
+      comprehensive: [
+        { label: 'Startup Rank', value: 'rank' },
+        {
+          label: 'Startup ID',
+          value: (row) => row.startupId?.['_id'].toString(),
+        },
+        { label: 'Startup Name', value: 'startupName' },
+        { label: 'Judge ID', value: (row) => row.judgeId?.toString() },
+        {
+          label: 'Overall Judge Score',
+          value: (row) => (row.totalScore * 10).toFixed(1),
+        },
+        {
+          label: 'Startup Overall Score(Avg)',
+          value: (row) => row.averageScore.toFixed(2),
+        },
+        {
+          label: 'Nominated for Next Round',
+          value: (row) => row.nominateNextRound.toString().toUpperCase(),
+        },
+        {
+          label: 'Mentor Interest',
+          value: (row) => row.mentorStartup.toString().toUpperCase(),
+        },
+        {
+          label: 'Heroes Want to Meet',
+          value: (row) => row.meetStartup.toString().toUpperCase(),
+        },
+        // Section scores
+        ...Object.keys(SECTIONS).map((section) => ({
+          label: `${section} Overall Score`,
+          value: (row) =>
+            this.getSectionScore(row.sectionScores[section])?.toFixed(2) || '0',
+        })),
+        ...this.getCriteriaFields(CRITERIA as any),
+      ],
+      summary: [
+        { label: 'Startup ID', value: 'startupId' },
+        { label: 'Startup Name', value: 'startupName' },
+        { label: 'Overall Score', value: (row) => row.averageScore.toFixed(2) },
+        { label: 'Nominated for Next Round', value: 'totalNominations' },
+        { label: 'Mentor Interest', value: 'totalMentorInterests' },
+        { label: 'Heroes Want to Meet', value: 'totalMeetings' },
+        { label: 'Rank', value: 'rank' },
+        // Section averages
+        ...Object.keys(SECTIONS).map((section) => ({
+          label: section.toLowerCase(),
+          value: (row) =>
+            this.getAverageSectionScore(row.evaluations, section)?.toFixed(2) ||
+            '0',
+        })),
+        // Criteria averages
+        ...this.getCriteriaFields(CRITERIA as any),
+      ],
+    };
+  }
+
+  async generateEvaluationCSVs(evaluations: Evaluation[]): Promise<Buffer> {
+    const comprehensiveData = evaluations.map((evaluation) => ({
+      ...evaluation,
+      startupName: evaluation.startupId?.['name'] || 'Unknown',
+      rank: this.getStartupRank(
+        evaluations,
+        evaluation.startupId?._id.toString(),
+      ).rank,
+      averageScore: this.getStartupRank(
+        evaluations,
+        evaluation.startupId?._id.toString(),
+      ).score,
+    }));
+
+    const summaryData = this.aggregateStartupSummaries(evaluations);
+
+    const roundData = evaluations[0].roundId as unknown as Round;
+
+    const comprehensiveCSV = convertToCSV({
+      fields: this.getEvaluationCsvFields(roundData).comprehensive,
+      data: comprehensiveData,
+    });
+
+    this.logger.log({summaryData})
+
+    const summaryCSV = convertToCSV({
+      fields: this.getEvaluationCsvFields(roundData).summary,
+      data: summaryData,
+    });
+
+    const zip = new JSZip();
+    zip.file('comprehensive_startup_rankings.csv', comprehensiveCSV);
+    zip.file('summary_rankings.csv', summaryCSV);
+
+    return await zip.generateAsync({ type: 'nodebuffer' });
+  }
+
+  private aggregateStartupSummaries(evaluations: Evaluation[]) {
+    const startupSummaries = evaluations.reduce(
+      (acc, evaluation) => {
+        const startupId = evaluation.startupId?._id.toString();
+        if (!acc[startupId]) {
+          acc[startupId] = {
+            startupId,
+            startupName: evaluation.startupId?.['name'] || 'Unknown',
+            evaluations: [],
+            totalNominations: 0,
+            totalMentorInterests: 0,
+            totalMeetings: 0,
+          };
+        }
+
+        acc[startupId].evaluations.push(evaluation);
+        acc[startupId].totalNominations += evaluation.nominateNextRound ? 1 : 0;
+        acc[startupId].totalMentorInterests += evaluation.mentorStartup ? 1 : 0;
+        acc[startupId].totalMeetings += evaluation.meetStartup ? 1 : 0;
+        acc[startupId].rawFormData = evaluation.rawFormData
+
+        return acc;
+      },
+      {} as Record<string, any>,
+    );
+
+    // Calculate averages and sort by score
+    return Object.values(startupSummaries)
+      .map((summary) => ({
+        ...summary,
+        averageScore: this.calculateAverageScore(summary.evaluations),
+      }))
+      .sort((a, b) => b.averageScore - a.averageScore)
+      .map((summary, index) => ({
+        ...summary,
+        rank: index + 1,
+      }));
+  }
+
+  private calculateAverageScore(evaluations: Evaluation[]): number {
+    return (
+      evaluations.reduce((sum, evaluation) => sum + evaluation.totalScore, 0) /
+      evaluations.length
+    );
+  }
+
+  private getStartupRank(evaluations: Evaluation[], startupId: string) {
+    const averageScores = new Map<string, number>();
+
+    evaluations.forEach((evaluation) => {
+      const id = evaluation.startupId?._id.toString();
+      if (!averageScores.has(id)) {
+        averageScores.set(id, 0);
+      }
+      averageScores.set(id, averageScores.get(id)! + evaluation.totalScore);
+    });
+
+    // Convert to average
+    averageScores.forEach((score, id) => {
+      const count = evaluations.filter(
+        (e) => e.startupId?._id.toString() === id,
+      ).length;
+      averageScores.set(id, score / count);
+    });
+
+    // Sort and find rank
+    const sorted = Array.from(averageScores.entries()).sort(
+      ([, a], [, b]) => b - a,
+    );
+
+    const rank = sorted.findIndex(([id]) => id === startupId) + 1;
+    return {rank, score: averageScores.get(startupId)!};
+  }
+
+  private getSectionScore(section: any): number {
+    return section?.rawAverage || 0;
+  }
+
+  private getAverageSectionScore(
+    evaluations: Evaluation[],
+    sectionKey: string,
+  ): number {
+    const scores = evaluations
+      .map((evaluation) =>
+        this.getSectionScore(evaluation.sectionScores[sectionKey]),
+      )
+      .filter((score) => !isNaN(score));
+
+    return scores.length ? scores.reduce((a, b) => a + b) / scores.length : 0;
+  }
+
+  private getCriterionScore(
+    row: any,
+    criterion: { question: string; _id: ObjectId },
+  ): number {
+    if (row.rawFormData) {
+      for (const [, section] of Object.entries(
+        row.rawFormData as Record<string, { id: string; scores: number }>,
+      )) {
+        const scores = section.scores;
+        if (!scores) continue;
+
+        for (const [questionId, score] of Object.entries(scores)) {
+          if (questionId == criterion._id.toString()) {
+            return score as number;
+          }
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  private getCriteriaFields(
+    criteriaArr: Record<string, { question: string; _id: ObjectId }[]> = {},
+  ) {
+    const fields = [] as ExportFieldHeader[];
+    Object.entries(criteriaArr).map(
+      ({ '0': criteriaName, '1': subQuestions }) => {
+        subQuestions.map((subQ: { question: string; _id: ObjectId }) =>
+          fields.push({
+            label: `${criteriaName} - ${subQ.question}`,
+            value: (row) => this.getCriterionScore(row, subQ).toFixed(2),
+          }),
+        );
+      },
+    );
+
+
+    return fields;
   }
 }

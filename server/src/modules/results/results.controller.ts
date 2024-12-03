@@ -110,4 +110,34 @@ export class ResultsController {
 
     return res.send(zipBuffer);
   }
+
+  @Get('export/raw')
+  @Auth(['admin'], [Permission.MANAGE_EVALUATIONS])
+  async exportRawResults(
+    @Query('round') round: string,
+    @Query('startups') startups: number,
+    @Response() res: ExpressResponse,
+  ) {
+    if (!round) {
+      throw new HttpException('Round required for export', 400);
+    }
+
+    const evaluations = await this.resultsService.getRawResults({
+      round,
+      startups,
+    });
+
+    const exportTimestamp = new Date().toISOString().replace(/:/g, '-');
+
+    const zipBuffer =
+      await this.resultsService.generateEvaluationCSVs(evaluations);
+
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename=raw_results_${exportTimestamp}.zip`,
+      'Content-Length': zipBuffer.length,
+    });
+
+    return res.send(zipBuffer);
+  }
 }

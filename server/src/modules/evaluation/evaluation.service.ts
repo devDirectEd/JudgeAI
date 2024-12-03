@@ -1,12 +1,11 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Evaluation } from 'src/models/evaluation.schema';
 import { CreateEvaluationDto } from './evaluation.dto';
 import { Judge } from 'src/models/judge.schema';
 import { JudgeService } from '../judge/judge.service';
 import { Schedule } from 'src/models/schedule.schema';
-import { Round } from 'src/models/round.schema';
 
 @Injectable()
 export class EvaluationService {
@@ -19,14 +18,22 @@ export class EvaluationService {
   ) {}
 
   async getPastEvaluations(judgeId: string): Promise<Evaluation[]> {
-    return this.evaluationModel.find({ judgeId }).exec();
+    return this.evaluationModel
+      .find({ judgeId })
+      .populate([
+        {
+          path: 'startupId',
+          select: 'name',
+        },
+      ])
+      .lean()
+      .exec();
   }
 
   async addEvaluation(
     evaluation: CreateEvaluationDto,
     scheduleId: string,
   ): Promise<Evaluation> {
-
     const schedule = await this.scheduleModel.findById(scheduleId).exec();
     if (!schedule) {
       throw new Error('Error linking evaluation to schedule');
@@ -50,7 +57,7 @@ export class EvaluationService {
     //remove scheduleId from schedules array in judge
     await this.judgeModel.updateOne(
       { _id: evaluation.judgeId },
-      { $pull: { schedules: scheduleId } },
+      { $pull: { schedules: new Types.ObjectId(scheduleId) } },
     );
 
     return createdEvaluation;
@@ -77,7 +84,6 @@ export class EvaluationService {
       .findById(evaluationId)
       .lean()
       .exec();
-
 
     if (!existingEvaluation) {
       throw new Error('Evaluation not found');
